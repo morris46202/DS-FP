@@ -1,43 +1,40 @@
-// CWA Weather and Rainfall Data Visualization Dashboard
+// NCDR Rainfall Data Visualization Dashboard
 // Uses Vanilla JS, Leaflet for Maps, and Apache ECharts for Graphs
 
 // --- Constants & Config ---
-const CWA_API_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/O-A0001-001";
-const CACHE_KEY = "cwa_weather_dashboard_cache";
-const API_KEY_KEY = "cwa_api_authorization_key";
+const NCDR_API_URL_BASE = "https://dataapi.ncdr.nat.gov.tw/NCDRAPI/OpenData/NCDR/ObsRain/";
+const CACHE_KEY = "ncdr_weather_dashboard_cache";
+const API_KEY_KEY = "ncdr_api_authorization_key";
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
+
+const COUNTIES = [
+  "臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市", 
+  "基隆市", "新竹市", "新竹縣", "苗栗縣", "彰化縣", "南投縣", 
+  "雲林縣", "嘉義市", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", 
+  "臺東縣", "澎湖縣"
+];
 
 // --- State Management ---
 let state = {
   mode: "demo", // "demo" or "api"
   apiKey: "",
-  weatherData: [],      // Cleaned active weather data
+  weatherData: [],      // Cleaned active weather data (NCDR grids)
   filteredData: [],     // Filtered data based on UI search/filters
   selectedCounty: "all",
   searchQuery: "",
-  mapMode: "temp",      // "temp" or "rain"
+  mapMode: "rain",      // "rain" (standard values) or "alert" (warnings only)
   cacheTimer: null,
   charts: {}            // Store chart instances
 };
 
-// --- Rain Standard Levels (Taiwan CWA definitions) ---
+// --- Rain Standard Levels (Taiwan CWA definitions used by NCDR) ---
 const RAIN_LEVELS = [
   { label: "無雨 (0 mm)", min: 0, max: 0.1, color: "#4b5563" },
   { label: "微量 (0.1-40 mm)", min: 0.1, max: 40, color: "#3b82f6" },
-  { label: "大雨 (>= 40mm/h 或 24h >= 80mm)", min: 40, max: 200, color: "#eab308" },
-  { label: "豪雨 (24h >= 200mm 或 3h >= 100mm)", min: 200, max: 350, color: "#f97316" },
-  { label: "大豪雨 (24h >= 350mm)", min: 350, max: 500, color: "#ef4444" },
-  { label: "超大豪雨 (24h >= 500mm)", min: 500, max: Infinity, color: "#c084fc" }
-];
-
-// --- Temperature Ranges for Visual Mapping ---
-const TEMP_LEVELS = [
-  { label: "寒冷 (< 10°C)", min: -Infinity, max: 10, color: "#3b82f6" },
-  { label: "涼爽 (10-18°C)", min: 10, max: 18, color: "#00e5ff" },
-  { label: "舒適 (18-24°C)", min: 18, max: 24, color: "#10b981" },
-  { label: "溫暖 (24-30°C)", min: 24, max: 30, color: "#eab308" },
-  { label: "炎熱 (30-35°C)", min: 30, max: 35, color: "#f97316" },
-  { label: "酷熱 (>= 35°C)", min: 35, max: Infinity, color: "#ef4444" }
+  { label: "大雨 (>= 40mm)", min: 40, max: 200, color: "#eab308" },
+  { label: "豪雨 (>= 200mm)", min: 200, max: 350, color: "#f97316" },
+  { label: "大豪雨 (>= 350mm)", min: 350, max: 500, color: "#ef4444" },
+  { label: "超大豪雨 (>= 500mm)", min: 500, max: Infinity, color: "#c084fc" }
 ];
 
 // --- Leaflet Map Instance ---
@@ -45,129 +42,77 @@ let map;
 let stationMarkersGroup;
 
 // --- Demo Mock Data ---
-// Detailed and geographically accurate coordinates for 24 stations in Taiwan to showcase features beautifully.
-// Includes high-altitude stations like Yushan to show clear temperature correlation!
-const DEMO_WEATHER_DATA = [
-  {
-    StationId: "466920", StationName: "臺北", StationLatitude: 25.0377, StationLongitude: 121.5149, StationAltitude: 5.3,
-    CountyName: "臺北市", TownName: "中正區", DateTime: new Date().toISOString(),
-    AirTemperature: 28.5, RelativeHumidity: 74, WindSpeed: 2.5, WindDirection: 90, Precipitation: 12.5, Weather: "局部陣雨"
-  },
-  {
-    StationId: "C0A980", StationName: "大直", StationLatitude: 25.0838, StationLongitude: 121.5435, StationAltitude: 12.0,
-    CountyName: "臺北市", TownName: "中山區", DateTime: new Date().toISOString(),
-    AirTemperature: 29.2, RelativeHumidity: 70, WindSpeed: 1.8, WindDirection: 110, Precipitation: 5.0, Weather: "多雲時陰"
-  },
-  {
-    StationId: "C0A9F0", StationName: "內湖", StationLatitude: 25.0792, StationLongitude: 121.5946, StationAltitude: 20.0,
-    CountyName: "臺北市", TownName: "內湖區", DateTime: new Date().toISOString(),
-    AirTemperature: 28.1, RelativeHumidity: 76, WindSpeed: 2.0, WindDirection: 80, Precipitation: 85.0, Weather: "大雨" // Test Big Rain
-  },
-  {
-    StationId: "466880", StationName: "板橋", StationLatitude: 25.0130, StationLongitude: 121.4420, StationAltitude: 9.7,
-    CountyName: "新北市", TownName: "板橋區", DateTime: new Date().toISOString(),
-    AirTemperature: 27.8, RelativeHumidity: 78, WindSpeed: 3.2, WindDirection: 95, Precipitation: 48.5, Weather: "陰有雨"
-  },
-  {
-    StationId: "C0I110", StationName: "三峽", StationLatitude: 24.9360, StationLongitude: 121.3734, StationAltitude: 45.0,
-    CountyName: "新北市", TownName: "三峽區", DateTime: new Date().toISOString(),
-    AirTemperature: 28.0, RelativeHumidity: 81, WindSpeed: 1.1, WindDirection: 60, Precipitation: 210.0, Weather: "豪雨" // Test Extremely Heavy Rain
-  },
-  {
-    StationId: "466900", StationName: "鞍部", StationLatitude: 25.1826, StationLongitude: 121.5297, StationAltitude: 825.8,
-    CountyName: "臺北市", TownName: "北投區", DateTime: new Date().toISOString(),
-    AirTemperature: 22.1, RelativeHumidity: 98, WindSpeed: 5.8, WindDirection: 75, Precipitation: 120.0, Weather: "濃霧大雨"
-  },
-  {
-    StationId: "466910", StationName: "竹子湖", StationLatitude: 25.1621, StationLongitude: 121.5368, StationAltitude: 607.6,
-    CountyName: "臺北市", TownName: "北投區", DateTime: new Date().toISOString(),
-    AirTemperature: 23.4, RelativeHumidity: 95, WindSpeed: 4.1, WindDirection: 80, Precipitation: 92.5, Weather: "大雨"
-  },
-  {
-    StationId: "467410", StationName: "臺南", StationLatitude: 22.9932, StationLongitude: 120.2033, StationAltitude: 40.8,
-    CountyName: "臺南市", TownName: "中西區", DateTime: new Date().toISOString(),
-    AirTemperature: 32.4, RelativeHumidity: 65, WindSpeed: 2.1, WindDirection: 210, Precipitation: 0.0, Weather: "晴天"
-  },
-  {
-    StationId: "467440", StationName: "高雄", StationLatitude: 22.5660, StationLongitude: 120.3090, StationAltitude: 2.3,
-    CountyName: "高雄市", TownName: "前鎮區", DateTime: new Date().toISOString(),
-    AirTemperature: 33.1, RelativeHumidity: 62, WindSpeed: 4.5, WindDirection: 240, Precipitation: 0.0, Weather: "晴"
-  },
-  {
-    StationId: "467490", StationName: "臺中", StationLatitude: 24.1457, StationLongitude: 120.6843, StationAltitude: 84.0,
-    CountyName: "臺中市", TownName: "北區", DateTime: new Date().toISOString(),
-    AirTemperature: 31.2, RelativeHumidity: 68, WindSpeed: 2.8, WindDirection: 180, Precipitation: 2.0, Weather: "多雲"
-  },
-  {
-    StationId: "467050", StationName: "新屋", StationLatitude: 24.9658, StationLongitude: 121.0315, StationAltitude: 20.6,
-    CountyName: "桃園市", TownName: "新屋區", DateTime: new Date().toISOString(),
-    AirTemperature: 29.5, RelativeHumidity: 72, WindSpeed: 4.9, WindDirection: 85, Precipitation: 0.0, Weather: "晴時多雲"
-  },
-  {
-    StationId: "467570", StationName: "新竹", StationLatitude: 24.8279, StationLongitude: 120.9754, StationAltitude: 26.9,
-    CountyName: "新竹市", TownName: "香山區", DateTime: new Date().toISOString(),
-    AirTemperature: 30.1, RelativeHumidity: 70, WindSpeed: 3.5, WindDirection: 90, Precipitation: 0.0, Weather: "晴"
-  },
-  {
-    StationId: "467650", StationName: "日月潭", StationLatitude: 23.8813, StationLongitude: 120.9081, StationAltitude: 1017.5,
-    CountyName: "南投縣", TownName: "魚池鄉", DateTime: new Date().toISOString(),
-    AirTemperature: 21.8, RelativeHumidity: 88, WindSpeed: 1.5, WindDirection: 120, Precipitation: 18.0, Weather: "陰天陣雨"
-  },
-  {
-    StationId: "467550", StationName: "玉山", StationLatitude: 23.4876, StationLongitude: 120.9595, StationAltitude: 3844.8,
-    CountyName: "南投縣", TownName: "信義鄉", DateTime: new Date().toISOString(),
-    AirTemperature: 6.2, RelativeHumidity: 99, WindSpeed: 12.4, WindDirection: 280, Precipitation: 65.5, Weather: "小雨霧" // High altitude, cold!
-  },
-  {
-    StationId: "467530", StationName: "阿里山", StationLatitude: 23.5082, StationLongitude: 120.8130, StationAltitude: 2201.3,
-    CountyName: "嘉義縣", TownName: "阿里山鄉", DateTime: new Date().toISOString(),
-    AirTemperature: 14.5, RelativeHumidity: 95, WindSpeed: 2.2, WindDirection: 230, Precipitation: 360.0, Weather: "大豪雨" // Torrential rain!
-  },
-  {
-    StationId: "467660", StationName: "臺東", StationLatitude: 22.7522, StationLongitude: 121.1546, StationAltitude: 9.0,
-    CountyName: "臺東縣", TownName: "臺東市", DateTime: new Date().toISOString(),
-    AirTemperature: 31.8, RelativeHumidity: 63, WindSpeed: 5.1, WindDirection: 160, Precipitation: 0.0, Weather: "晴天"
-  },
-  {
-    StationId: "466990", StationName: "花蓮", StationLatitude: 23.9751, StationLongitude: 121.6133, StationAltitude: 16.1,
-    CountyName: "花蓮縣", TownName: "花蓮市", DateTime: new Date().toISOString(),
-    AirTemperature: 29.8, RelativeHumidity: 70, WindSpeed: 3.1, WindDirection: 140, Precipitation: 3.5, Weather: "多雲"
-  },
-  {
-    StationId: "467080", StationName: "宜蘭", StationLatitude: 24.7640, StationLongitude: 121.7565, StationAltitude: 7.2,
-    CountyName: "宜蘭縣", TownName: "宜蘭市", DateTime: new Date().toISOString(),
-    AirTemperature: 28.2, RelativeHumidity: 76, WindSpeed: 2.4, WindDirection: 90, Precipitation: 15.0, Weather: "短暫雨"
-  },
-  {
-    StationId: "466940", StationName: "基隆", StationLatitude: 25.1333, StationLongitude: 121.7408, StationAltitude: 26.7,
-    CountyName: "基隆市", TownName: "仁愛區", DateTime: new Date().toISOString(),
-    AirTemperature: 28.5, RelativeHumidity: 74, WindSpeed: 5.2, WindDirection: 70, Precipitation: 32.0, Weather: "陰陣雨"
-  },
-  {
-    StationId: "467300", StationName: "澎湖", StationLatitude: 23.5654, StationLongitude: 119.5631, StationAltitude: 10.7,
-    CountyName: "澎湖縣", TownName: "馬公市", DateTime: new Date().toISOString(),
-    AirTemperature: 30.5, RelativeHumidity: 75, WindSpeed: 7.5, WindDirection: 220, Precipitation: 0.0, Weather: "晴"
-  },
-  {
-    StationId: "467110", StationName: "金門", StationLatitude: 24.4485, StationLongitude: 118.2891, StationAltitude: 48.0,
-    CountyName: "金門縣", TownName: "金湖鎮", DateTime: new Date().toISOString(),
-    AirTemperature: 27.5, RelativeHumidity: 85, WindSpeed: 4.8, WindDirection: 180, Precipitation: 520.0, Weather: "超大豪雨" // Extreme Torrential!
-  },
-  {
-    StationId: "467990", StationName: "馬祖", StationLatitude: 26.1691, StationLongitude: 119.9228, StationAltitude: 97.8,
-    CountyName: "連江縣", TownName: "南竿鄉", DateTime: new Date().toISOString(),
-    AirTemperature: 25.8, RelativeHumidity: 92, WindSpeed: 6.2, WindDirection: 190, Precipitation: 95.0, Weather: "大雨雷擊"
-  },
-  {
-    StationId: "C0K400", StationName: "恆春", StationLatitude: 22.0039, StationLongitude: 120.7463, StationAltitude: 22.3,
-    CountyName: "屏東縣", TownName: "恆春鎮", DateTime: new Date().toISOString(),
-    AirTemperature: 32.9, RelativeHumidity: 68, WindSpeed: 6.8, WindDirection: 250, Precipitation: 0.0, Weather: "晴"
-  },
-  {
-    StationId: "C0G650", StationName: "員林", StationLatitude: 23.9589, StationLongitude: 120.5739, StationAltitude: 32.0,
-    CountyName: "彰化縣", TownName: "員林市", DateTime: new Date().toISOString(),
-    AirTemperature: 30.8, RelativeHumidity: 70, WindSpeed: 2.1, WindDirection: 160, Precipitation: 1.5, Weather: "多雲"
-  }
+// A geographically accurate representation of 32 grid nodes across Taiwan with diverse rainfall patterns.
+const DEMO_NCDR_DATA = [
+  // Taipei Grid nodes
+  { Grid5000: "121.51_25.03", WGS84_Lon: 121.5149, WGS84_Lat: 25.0377, RainValue: 12.5, CityName: "臺北市", YY: "2026", MM: "06" },
+  { Grid5000: "121.54_25.08", WGS84_Lon: 121.5435, WGS84_Lat: 25.0838, RainValue: 5.0, CityName: "臺北市", YY: "2026", MM: "06" },
+  { Grid5000: "121.59_25.07", WGS84_Lon: 121.5946, WGS84_Lat: 25.0792, RainValue: 95.0, CityName: "臺北市", YY: "2026", MM: "06" }, // Heavy Rain
+  { Grid5000: "121.53_25.16", WGS84_Lon: 121.5368, WGS84_Lat: 25.1621, RainValue: 135.5, CityName: "臺北市", YY: "2026", MM: "06" }, // Heavy Rain
+  
+  // New Taipei Grid nodes
+  { Grid5000: "121.44_25.01", WGS84_Lon: 121.4420, WGS84_Lat: 25.0130, RainValue: 48.5, CityName: "新北市", YY: "2026", MM: "06" },
+  { Grid5000: "121.37_24.93", WGS84_Lon: 121.3734, WGS84_Lat: 24.9360, RainValue: 245.0, CityName: "新北市", YY: "2026", MM: "06" }, // Extremely Heavy Rain
+  { Grid5000: "121.72_25.02", WGS84_Lon: 121.7230, WGS84_Lat: 25.0240, RainValue: 180.0, CityName: "新北市", YY: "2026", MM: "06" },
+  
+  // Keelung
+  { Grid5000: "121.74_25.13", WGS84_Lon: 121.7408, WGS84_Lat: 25.1333, RainValue: 35.0, CityName: "基隆市", YY: "2026", MM: "06" },
+  
+  // Taoyuan
+  { Grid5000: "121.03_24.96", WGS84_Lon: 121.0315, WGS84_Lat: 24.9658, RainValue: 0.0, CityName: "桃園市", YY: "2026", MM: "06" },
+  { Grid5000: "121.21_24.90", WGS84_Lon: 121.2150, WGS84_Lat: 24.9030, RainValue: 8.5, CityName: "桃園市", YY: "2026", MM: "06" },
+  
+  // Hsinchu
+  { Grid5000: "120.97_24.82", WGS84_Lon: 120.9754, WGS84_Lat: 24.8279, RainValue: 0.0, CityName: "新竹市", YY: "2026", MM: "06" },
+  { Grid5000: "121.15_24.70", WGS84_Lon: 121.1520, WGS84_Lat: 24.7040, RainValue: 12.0, CityName: "新竹縣", YY: "2026", MM: "06" },
+  
+  // Miaoli
+  { Grid5000: "120.82_24.56", WGS84_Lon: 120.8220, WGS84_Lat: 24.5620, RainValue: 2.5, CityName: "苗栗縣", YY: "2026", MM: "06" },
+  
+  // Taichung
+  { Grid5000: "120.68_24.14", WGS84_Lon: 120.6843, WGS84_Lat: 24.1457, RainValue: 1.0, CityName: "臺中市", YY: "2026", MM: "06" },
+  { Grid5000: "120.95_24.25", WGS84_Lon: 120.9540, WGS84_Lat: 24.2560, RainValue: 56.0, CityName: "臺中市", YY: "2026", MM: "06" },
+  
+  // Changhua
+  { Grid5000: "120.57_23.95", WGS84_Lon: 120.5739, WGS84_Lat: 23.9589, RainValue: 1.5, CityName: "彰化縣", YY: "2026", MM: "06" },
+  
+  // Nantou
+  { Grid5000: "120.90_23.88", WGS84_Lon: 120.9081, WGS84_Lat: 23.8813, RainValue: 24.0, CityName: "南投縣", YY: "2026", MM: "06" },
+  { Grid5000: "120.95_23.48", WGS84_Lon: 120.9595, WGS84_Lat: 23.4876, RainValue: 65.5, CityName: "南投縣", YY: "2026", MM: "06" },
+  
+  // Yunlin
+  { Grid5000: "120.43_23.70", WGS84_Lon: 120.4320, WGS84_Lat: 23.7040, RainValue: 0.0, CityName: "雲林縣", YY: "2026", MM: "06" },
+  
+  // Chiayi
+  { Grid5000: "120.45_23.48", WGS84_Lon: 120.4530, WGS84_Lat: 23.4820, RainValue: 0.0, CityName: "嘉義市", YY: "2026", MM: "06" },
+  { Grid5000: "120.81_23.50", WGS84_Lon: 120.8130, WGS84_Lat: 23.5082, RainValue: 365.0, CityName: "嘉義縣", YY: "2026", MM: "06" }, // Torrential Rain!
+  
+  // Tainan
+  { Grid5000: "120.20_22.99", WGS84_Lon: 120.2033, WGS84_Lat: 22.9932, RainValue: 0.0, CityName: "臺南市", YY: "2026", MM: "06" },
+  
+  // Kaohsiung
+  { Grid5000: "120.30_22.56", WGS84_Lon: 120.3090, WGS84_Lat: 22.5660, RainValue: 0.0, CityName: "高雄市", YY: "2026", MM: "06" },
+  { Grid5000: "120.65_22.90", WGS84_Lon: 120.6520, WGS84_Lat: 22.9040, RainValue: 4.0, CityName: "高雄市", YY: "2026", MM: "06" },
+  
+  // Pingtung
+  { Grid5000: "120.74_22.00", WGS84_Lon: 120.7463, WGS84_Lat: 22.0039, RainValue: 0.0, CityName: "屏東縣", YY: "2026", MM: "06" },
+  { Grid5000: "120.71_22.45", WGS84_Lon: 120.7120, WGS84_Lat: 22.4560, RainValue: 45.0, CityName: "屏東縣", YY: "2026", MM: "06" },
+  
+  // Yilan
+  { Grid5000: "121.75_24.76", WGS84_Lon: 121.7565, WGS84_Lat: 24.7640, RainValue: 55.0, CityName: "宜蘭縣", YY: "2026", MM: "06" },
+  
+  // Hualien
+  { Grid5000: "121.61_23.97", WGS84_Lon: 121.6133, WGS84_Lat: 23.9751, RainValue: 32.5, CityName: "花蓮縣", YY: "2026", MM: "06" },
+  
+  // Taitung
+  { Grid5000: "121.15_22.75", WGS84_Lon: 121.1546, WGS84_Lat: 22.7522, RainValue: 0.0, CityName: "臺東縣", YY: "2026", MM: "06" },
+  
+  // Penghu
+  { Grid5000: "119.56_23.56", WGS84_Lon: 119.5631, WGS84_Lat: 23.5654, RainValue: 0.0, CityName: "澎湖縣", YY: "2026", MM: "06" },
+  
+  // High extremes for alerts demonstration
+  { Grid5000: "120.80_24.40", WGS84_Lon: 120.8040, WGS84_Lat: 24.4020, RainValue: 512.0, CityName: "苗栗縣", YY: "2026", MM: "06" }, // Extremely Torrential Rain!
+  { Grid5000: "121.40_24.60", WGS84_Lon: 121.4020, WGS84_Lat: 24.6030, RainValue: 380.0, CityName: "宜蘭縣", YY: "2026", MM: "06" }  // Torrential Rain
 ];
 
 // --- Initialization ---
@@ -195,14 +140,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // --- Map Initialization ---
 function initMap() {
-  // Center Taiwan geographically
   map = L.map("map", {
     zoomControl: true,
     minZoom: 7,
     maxZoom: 15
   }).setView([23.8, 121.0], 8);
 
-  // Add CartoDB Dark Matter map tiles (looks very premium and contrasty)
   L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: "abcd"
@@ -213,7 +156,6 @@ function initMap() {
 
 // --- Bind Event Listeners ---
 function bindEvents() {
-  // Modal toggle
   const modal = document.getElementById("api-modal");
   document.getElementById("btn-config-api").addEventListener("click", () => {
     modal.classList.add("open");
@@ -222,7 +164,6 @@ function bindEvents() {
     modal.classList.remove("open");
   });
   
-  // Password Visibility Toggle
   document.getElementById("btn-toggle-pw").addEventListener("click", () => {
     const input = document.getElementById("api-key-input");
     const icon = document.querySelector("#btn-toggle-pw i");
@@ -236,23 +177,20 @@ function bindEvents() {
     lucide.createIcons();
   });
 
-  // Save API Key
   document.getElementById("btn-save-api").addEventListener("click", () => {
     const val = document.getElementById("api-key-input").value.trim();
     if (val) {
       localStorage.setItem(API_KEY_KEY, val);
       state.apiKey = val;
       state.mode = "api";
-      // Clear cache to trigger fresh pull
       localStorage.removeItem(CACHE_KEY);
       modal.classList.remove("open");
       loadData();
     } else {
-      alert("請輸入有效的 API 授權碼。或是點選下方「切換至 Demo 模式」。");
+      alert("請輸入有效的 NCDR API 金鑰 Token。");
     }
   });
 
-  // Switch to Demo Mode
   document.getElementById("btn-demo-mode").addEventListener("click", () => {
     localStorage.removeItem(API_KEY_KEY);
     localStorage.removeItem(CACHE_KEY);
@@ -263,12 +201,9 @@ function bindEvents() {
     loadData();
   });
 
-  // Manual Refresh
   document.getElementById("btn-refresh").addEventListener("click", () => {
     const icon = document.getElementById("icon-refresh");
     icon.classList.add("icon-pulse");
-    
-    // Clear cache to force load
     localStorage.removeItem(CACHE_KEY);
     loadData().finally(() => {
       setTimeout(() => {
@@ -277,24 +212,23 @@ function bindEvents() {
     });
   });
 
-  // Map layer toggle
-  document.getElementById("map-mode-temp").addEventListener("click", (e) => {
-    document.getElementById("map-mode-temp").classList.add("active");
-    document.getElementById("map-mode-rain").classList.remove("active");
-    state.mapMode = "temp";
-    renderMapMarkers();
-    renderMapLegend();
-  });
-
-  document.getElementById("map-mode-rain").addEventListener("click", (e) => {
+  // Map layer toggle - Rain vs Alerts
+  document.getElementById("map-mode-rain").addEventListener("click", () => {
     document.getElementById("map-mode-rain").classList.add("active");
-    document.getElementById("map-mode-temp").classList.remove("active");
+    document.getElementById("map-mode-alert").classList.remove("active");
     state.mapMode = "rain";
     renderMapMarkers();
     renderMapLegend();
   });
 
-  // Filters & Search
+  document.getElementById("map-mode-alert").addEventListener("click", () => {
+    document.getElementById("map-mode-alert").classList.add("active");
+    document.getElementById("map-mode-rain").classList.remove("active");
+    state.mapMode = "alert";
+    renderMapMarkers();
+    renderMapLegend();
+  });
+
   document.getElementById("select-county").addEventListener("change", (e) => {
     state.selectedCounty = e.target.value;
     filterAndRender();
@@ -305,7 +239,7 @@ function bindEvents() {
     filterAndRender();
   });
 
-  // Tabs for ECharts
+  // Tab resizing / ECharts activation
   const tabs = document.querySelectorAll(".tab-btn");
   tabs.forEach(tab => {
     tab.addEventListener("click", () => {
@@ -318,7 +252,6 @@ function bindEvents() {
       });
       document.getElementById(tabId).classList.add("active");
       
-      // ECharts needs resize/update when tab becomes active
       setTimeout(() => {
         Object.values(state.charts).forEach(chart => {
           if (chart) chart.resize();
@@ -327,7 +260,6 @@ function bindEvents() {
     });
   });
 
-  // Handle Window Resize for charts
   window.addEventListener("resize", () => {
     Object.values(state.charts).forEach(chart => {
       if (chart) chart.resize();
@@ -335,50 +267,56 @@ function bindEvents() {
   });
 }
 
-// --- Data Fetching, Cache & Cleaning ---
+// --- Data Loader ---
 async function loadData() {
   updateHeaderUI();
   
   if (state.mode === "demo") {
-    state.weatherData = JSON.parse(JSON.stringify(DEMO_WEATHER_DATA)); // Clone mock
+    state.weatherData = JSON.parse(JSON.stringify(DEMO_NCDR_DATA));
     filterAndRender();
     startCacheCountdown(null);
     return;
   }
   
-  // Mode: API. Check localStorage cache
+  // Mode: API. Check local cache
   const cached = localStorage.getItem(CACHE_KEY);
   if (cached) {
     try {
       const cacheObj = JSON.parse(cached);
-      const elapsed = Date.now() - cacheObj.timestamp;
-      if (elapsed < CACHE_TTL_MS) {
+      if (Date.now() - cacheObj.timestamp < CACHE_TTL_MS) {
         state.weatherData = cacheObj.data;
         filterAndRender();
         startCacheCountdown(cacheObj.timestamp);
         return;
       }
     } catch (e) {
-      console.error("解析快取失敗，將重新拉取 API", e);
+      console.error("解析快取失敗", e);
     }
   }
 
-  // Fetch from remote RESTful CWA API
+  // Fetch NCDR API concurrently for all 20 counties
   try {
-    const response = await fetch(`${CWA_API_URL}?Authorization=${state.apiKey}&format=JSON`);
-    if (!response.ok) {
-      throw new Error(`API 回傳錯誤代碼: ${response.status}`);
+    const fetchPromises = COUNTIES.map(async (county) => {
+      const url = `${NCDR_API_URL_BASE}${encodeURIComponent(county)}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Token": state.apiKey
+        }
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    });
+
+    const results = await Promise.all(fetchPromises);
+    const rawData = results.flat();
+    
+    if (!Array.isArray(rawData) || rawData.length === 0) {
+      throw new Error("API 未回傳資料或認證金鑰 Token 無效。");
     }
-    const rawData = await response.json();
+
+    state.weatherData = cleanNCDRData(rawData);
     
-    if (rawData.success !== "true" || !rawData.records || !rawData.records.Station) {
-      throw new Error("API 回傳結構異常，或金鑰無效！");
-    }
-    
-    // Clean and Structure Data
-    state.weatherData = cleanCWAData(rawData.records.Station);
-    
-    // Save to Cache
     const cacheObj = {
       timestamp: Date.now(),
       data: state.weatherData
@@ -388,78 +326,50 @@ async function loadData() {
     filterAndRender();
     startCacheCountdown(cacheObj.timestamp);
   } catch (error) {
-    console.error("獲取 CWA API 資料失敗:", error);
-    alert(`獲取 CWA 氣象資料失敗: ${error.message}\n系統將自動切換為 Demo 模擬資料供您測試。`);
+    console.error("NCDR API 介接失敗:", error);
+    alert(`連接 NCDR 降雨 API 失敗: ${error.message}\n將切換為 Demo 模擬資料展示。`);
     state.mode = "demo";
-    state.weatherData = JSON.parse(JSON.stringify(DEMO_WEATHER_DATA));
+    state.weatherData = JSON.parse(JSON.stringify(DEMO_NCDR_DATA));
     filterAndRender();
     startCacheCountdown(null);
   }
 }
 
-// --- Data Cleaner ---
-function cleanCWAData(stations) {
+// --- NCDR Data Cleaner ---
+function cleanNCDRData(rawData) {
   const cleanedList = [];
   
-  stations.forEach(st => {
-    // 1. Core coordinates & location checks
-    const lat = parseFloat(st.StationLatitude || (st.GeoInfo && st.GeoInfo.Coordinates && st.GeoInfo.Coordinates[0] && st.GeoInfo.Coordinates[0].StationLatitude));
-    const lon = parseFloat(st.StationLongitude || (st.GeoInfo && st.GeoInfo.Coordinates && st.GeoInfo.Coordinates[0] && st.GeoInfo.Coordinates[0].StationLongitude));
+  rawData.forEach(item => {
+    const lat = parseFloat(item.WGS84_Lat || item.Lat);
+    const lon = parseFloat(item.WGS84_Lon || item.Lon);
     
-    if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) return; // Skip coordinates missing
-
-    // 2. Altitude check
-    let alt = parseFloat(st.StationAltitude || (st.GeoInfo && st.GeoInfo.StationAltitude));
-    if (isNaN(alt) || alt < -100) alt = 0; // standard fallback
+    if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) return;
     
-    // 3. County and Town (CWA structures varies slightly across versions)
-    const county = st.CountyName || (st.GeoInfo && st.GeoInfo.CountyName) || "未知縣市";
-    const town = st.TownName || (st.GeoInfo && st.GeoInfo.TownName) || "";
+    let rain = parseFloat(item.RainValue);
+    if (isNaN(rain) || item.RainValue === "NaN" || rain < 0) {
+      // Clean anomalies (NCDR uses "NaN" string for missing values)
+      rain = null;
+    }
     
-    // 4. Extract Weather Elements and filter missing/maintenance sentinel values (-99, -990, -999)
-    const elem = st.WeatherElement || {};
+    const county = item.CityName || item.County || item.CountyName || "未知縣市";
+    const gridId = item.Grid5000 || `${lon.toFixed(2)}_${lat.toFixed(2)}`;
     
-    let temp = parseFloat(elem.AirTemperature);
-    if (isNaN(temp) || temp < -90 || temp > 60) temp = null; // Clean -99.0
-    
-    let hum = parseFloat(elem.RelativeHumidity);
-    if (isNaN(hum) || hum < 0 || hum > 100) hum = null; // Clean -99
-    
-    let windSpd = parseFloat(elem.WindSpeed);
-    if (isNaN(windSpd) || windSpd < 0) windSpd = null; // Clean -99
-    
-    let windDir = parseFloat(elem.WindDirection);
-    if (isNaN(windDir) || windDir < 0 || windDir > 360) windDir = null; // Clean -99
-    
-    let precip = parseFloat(elem.Precipitation || (elem.Now && elem.Now.Precipitation));
-    if (isNaN(precip) || precip < -90) precip = null; // Clean -99.0 sentinel value
-    else if (precip < 0) precip = 0; // Negative rain correction
-    
-    const weatherText = elem.Weather || "無狀態數據";
-    const dt = st.ObsTime ? st.ObsTime.DateTime : new Date().toISOString();
-
     cleanedList.push({
-      StationId: st.StationId,
-      StationName: st.StationName,
+      GridId: gridId,
+      StationName: `網格 ${gridId}`, // grid node behaves as station name
       StationLatitude: lat,
       StationLongitude: lon,
-      StationAltitude: alt,
       CountyName: county.trim(),
-      TownName: town.trim(),
-      DateTime: dt,
-      AirTemperature: temp,
-      RelativeHumidity: hum,
-      WindSpeed: windSpd,
-      WindDirection: windDir,
-      Precipitation: precip,
-      Weather: weatherText
+      Precipitation: rain,
+      YY: item.YY || "2026",
+      MM: item.MM || "06"
     });
   });
   
   return cleanedList;
 }
 
-// --- Cache Timer & Countdown ---
+// --- Cache Timer ---
 function startCacheCountdown(timestamp) {
   if (state.cacheTimer) clearInterval(state.cacheTimer);
   const cacheContainer = document.getElementById("cache-container");
@@ -482,8 +392,7 @@ function startCacheCountdown(timestamp) {
     } else {
       const minutes = Math.floor(remaining / 60000);
       const seconds = Math.floor((remaining % 60000) / 1000);
-      const paddedSeconds = seconds.toString().padStart(2, "0");
-      cacheText.textContent = `快取中 (剩餘 ${minutes}:${paddedSeconds})`;
+      cacheText.textContent = `快取中 (剩餘 ${minutes}:${seconds.toString().padStart(2, "0")})`;
     }
   }
   
@@ -491,7 +400,7 @@ function startCacheCountdown(timestamp) {
   state.cacheTimer = setInterval(updateCountdown, 1000);
 }
 
-// --- UI Header state updates ---
+// --- Header UI Mode status ---
 function updateHeaderUI() {
   const indicator = document.getElementById("mode-indicator");
   const modeText = document.getElementById("status-mode-text");
@@ -501,192 +410,156 @@ function updateHeaderUI() {
     modeText.textContent = "Demo 模擬數據模式";
   } else {
     indicator.className = "status-indicator active";
-    modeText.textContent = "CWA 即時串接模式";
+    modeText.textContent = "NCDR 即時串接模式";
   }
 }
 
-// --- Filter logic ---
+// --- Filters mapping ---
 function filterAndRender() {
   state.filteredData = state.weatherData.filter(st => {
-    // County match
     let countyMatch = true;
     if (state.selectedCounty !== "all") {
       countyMatch = st.CountyName.includes(state.selectedCounty) || 
                     state.selectedCounty.includes(st.CountyName);
     }
     
-    // Search match
     let searchMatch = true;
     if (state.searchQuery) {
       searchMatch = st.StationName.toLowerCase().includes(state.searchQuery) ||
                     st.CountyName.toLowerCase().includes(state.searchQuery) ||
-                    st.TownName.toLowerCase().includes(state.searchQuery) ||
-                    st.StationId.toLowerCase().includes(state.searchQuery);
+                    st.GridId.toLowerCase().includes(state.searchQuery);
     }
     
     return countyMatch && searchMatch;
   });
 
-  // Update KPI Metrics Cards (calculated from full cleaned list for accuracy, or filtered if preferred. We use full list for overview, which makes more sense!)
   updateKPIMetrics();
-  
-  // Render Map Markers
   renderMapMarkers();
   renderMapLegend();
-  
-  // Render/Update ECharts
   renderCharts();
 }
 
-// --- KPI Cards Calculation ---
+// --- Metrics Calculations ---
 function updateKPIMetrics() {
-  const validTempStations = state.weatherData.filter(st => st.AirTemperature !== null);
-  const validRainStations = state.weatherData.filter(st => st.Precipitation !== null);
+  const validRainGrids = state.weatherData.filter(st => st.Precipitation !== null);
   
-  // 1. Max Temp
-  if (validTempStations.length > 0) {
-    const maxTempSt = validTempStations.reduce((prev, curr) => prev.AirTemperature > curr.AirTemperature ? prev : curr);
-    document.getElementById("val-max-temp").textContent = `${maxTempSt.AirTemperature.toFixed(1)} °C`;
-    document.getElementById("loc-max-temp").textContent = `測站: ${maxTempSt.StationName} (${maxTempSt.CountyName})`;
-  } else {
-    document.getElementById("val-max-temp").textContent = "--.- °C";
-    document.getElementById("loc-max-temp").textContent = "無資料";
-  }
-
-  // 2. Min Temp
-  if (validTempStations.length > 0) {
-    const minTempSt = validTempStations.reduce((prev, curr) => prev.AirTemperature < curr.AirTemperature ? prev : curr);
-    document.getElementById("val-min-temp").textContent = `${minTempSt.AirTemperature.toFixed(1)} °C`;
-    document.getElementById("loc-min-temp").textContent = `測站: ${minTempSt.StationName} (${minTempSt.CountyName})`;
-  } else {
-    document.getElementById("val-min-temp").textContent = "--.- °C";
-    document.getElementById("loc-min-temp").textContent = "無資料";
-  }
-
-  // 3. Max Rain
-  if (validRainStations.length > 0) {
-    const maxRainSt = validRainStations.reduce((prev, curr) => prev.Precipitation > curr.Precipitation ? prev : curr);
+  // 1. Max Rain Grid
+  if (validRainGrids.length > 0) {
+    const maxRainSt = validRainGrids.reduce((prev, curr) => prev.Precipitation > curr.Precipitation ? prev : curr);
     document.getElementById("val-max-rain").textContent = `${maxRainSt.Precipitation.toFixed(1)} mm`;
-    document.getElementById("loc-max-rain").textContent = `測站: ${maxRainSt.StationName} (${maxRainSt.CountyName})`;
+    document.getElementById("loc-max-rain").textContent = `網格: ${maxRainSt.GridId} (${maxRainSt.CountyName})`;
   } else {
     document.getElementById("val-max-rain").textContent = "0.0 mm";
-    document.getElementById("loc-max-rain").textContent = "無降雨測站";
+    document.getElementById("loc-max-rain").textContent = "無降雨網格";
   }
 
-  // 4. Station Counts
+  // 2. Average Rain
+  if (validRainGrids.length > 0) {
+    const totalRain = validRainGrids.reduce((sum, curr) => sum + curr.Precipitation, 0);
+    const avgRain = totalRain / validRainGrids.length;
+    document.getElementById("val-avg-rain").textContent = `${avgRain.toFixed(1)} mm`;
+  } else {
+    document.getElementById("val-avg-rain").textContent = "0.0 mm";
+  }
+
+  // 3. Alerts count (rain >= 40mm)
+  const alertGrids = validRainGrids.filter(st => st.Precipitation >= 40);
+  document.getElementById("val-alert-count").textContent = alertGrids.length;
+
+  // 4. Grid counts
   document.getElementById("val-station-count").textContent = state.weatherData.length;
-  document.getElementById("lbl-station-detail").textContent = `篩選後: ${state.filteredData.length} 站`;
+  document.getElementById("lbl-station-detail").textContent = `篩選後: ${state.filteredData.length} 網格`;
 }
 
-// --- Map Markers Renderer ---
+// --- Map Marker rendering ---
 function renderMapMarkers() {
-  // Clear old markers
   stationMarkersGroup.clearLayers();
   
   if (state.filteredData.length === 0) return;
   
-  // Store bounds to adjust map view slightly if filter is single county
   const latLons = [];
   
   state.filteredData.forEach(st => {
     const lat = st.StationLatitude;
     const lon = st.StationLongitude;
+    
+    // NCDR ObsRain does not have Kinmen/Matsu, but if coordinates fall outside center view, we push it
     latLons.push([lat, lon]);
 
-    let markerColor = "#4b5563";
-    let tooltipVal = "";
+    const rain = st.Precipitation;
     
-    // Choose marker color depending on Map Mode
-    if (state.mapMode === "temp") {
-      if (st.AirTemperature !== null) {
-        const temp = st.AirTemperature;
-        const matchedLevel = TEMP_LEVELS.find(lvl => temp >= lvl.min && temp < lvl.max);
-        markerColor = matchedLevel ? matchedLevel.color : "#4b5563";
-        tooltipVal = `${temp.toFixed(1)} °C`;
-      } else {
-        tooltipVal = "無資料";
-      }
-    } else {
-      // Rain Mode
-      const rain = st.Precipitation;
+    // If in Alert Map Mode, only show markers that are under active warning (rain >= 40mm)
+    if (state.mapMode === "alert" && (rain === null || rain < 40)) {
+      return;
+    }
+
+    let markerColor = "#4b5563";
+    let tooltipVal = "無資料";
+    
+    if (rain !== null) {
       const matchedLevel = RAIN_LEVELS.find(lvl => rain >= lvl.min && rain < lvl.max);
       markerColor = matchedLevel ? matchedLevel.color : "#4b5563";
       tooltipVal = `${rain.toFixed(1)} mm`;
     }
 
-    // Creating beautiful custom styled markers using SVG DivIcons (clean, scaling, futuristic)
+    const scale = rain > 150 ? 1.4 : (rain > 40 ? 1.2 : 1.0);
+
+    // Dynamic Leaflet DivIcon
     const customIcon = L.divIcon({
       className: "custom-marker-icon",
       html: `<div style="
-        width: 16px; 
-        height: 16px; 
+        width: 14px; 
+        height: 14px; 
         background-color: ${markerColor}; 
-        border: 2.5px solid #fff; 
-        border-radius: 50%; 
+        border: 2px solid #fff; 
+        border-radius: 3px; /* square shape for NCDR grid system */
         box-shadow: 0 0 10px ${markerColor};
-        transform: scale(${st.Precipitation > 100 && state.mapMode === "rain" ? 1.4 : 1});
+        transform: scale(${scale});
         transition: all 0.3s ease;
       "></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
     });
 
-    // Create Leaflet Marker
     const marker = L.marker([lat, lon], { icon: customIcon });
     
-    // Generate beautiful custom Popup HTML
-    const formattedTemp = st.AirTemperature !== null ? `${st.AirTemperature.toFixed(1)} °C` : "保養維修中";
-    const formattedHum = st.RelativeHumidity !== null ? `${st.RelativeHumidity.toFixed(0)} %` : "無觀測";
-    const formattedWindSpd = st.WindSpeed !== null ? `${st.WindSpeed.toFixed(1)} m/s` : "無";
-    const formattedWindDir = st.WindDirection !== null ? `${st.WindDirection}°` : "無";
-    
+    // Alerts text formatting
     let rainAlertClass = "";
     let rainAlertText = "正常 / 無警戒";
-    if (st.Precipitation >= 500) {
+    if (rain >= 500) {
       rainAlertText = "🔴 超大豪雨警戒";
       rainAlertClass = "background: rgba(192, 132, 252, 0.2); color: #c084fc; border: 1px solid #c084fc;";
-    } else if (st.Precipitation >= 350) {
+    } else if (rain >= 350) {
       rainAlertText = "🔴 大豪雨警戒";
       rainAlertClass = "background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444;";
-    } else if (st.Precipitation >= 200) {
+    } else if (rain >= 200) {
       rainAlertText = "🟠 豪雨警戒";
       rainAlertClass = "background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid #f97316;";
-    } else if (st.Precipitation >= 80 || st.Precipitation >= 40) {
-      // simplified hour rain representation
-      rainAlertText = "🟡 大雨特報";
+    } else if (rain >= 40) {
+      rainAlertText = "🟡 大雨警戒";
       rainAlertClass = "background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308;";
-    } else if (st.Precipitation > 0) {
+    } else if (rain > 0) {
       rainAlertText = "🟢 降雨進行中";
       rainAlertClass = "background: rgba(16, 185, 129, 0.15); color: #10b981;";
     }
     
     const popupContent = `
       <div class="popup-station-header">
-        <div class="popup-station-name">${st.StationName}</div>
-        <div class="popup-station-meta">${st.CountyName} ${st.TownName} | ID: ${st.StationId}</div>
+        <div class="popup-station-name">觀測網格 ${st.GridId}</div>
+        <div class="popup-station-meta">${st.CountyName} | NCDR Grid Node</div>
       </div>
       <div class="popup-grid">
         <div class="popup-item">
-          <span class="popup-label">即時氣溫</span>
-          <span class="popup-val" style="color: ${st.AirTemperature !== null ? '#ffedd5' : '#6b7280'}">${formattedTemp}</span>
+          <span class="popup-label">經度 (WGS84)</span>
+          <span class="popup-val">${lon.toFixed(4)}</span>
         </div>
         <div class="popup-item">
-          <span class="popup-label">累積雨量</span>
-          <span class="popup-val" style="color: #60a5fa">${st.Precipitation.toFixed(1)} mm</span>
+          <span class="popup-label">緯度 (WGS84)</span>
+          <span class="popup-val">${lat.toFixed(4)}</span>
         </div>
-        <div class="popup-item">
-          <span class="popup-label">相對濕度</span>
-          <span class="popup-val">${formattedHum}</span>
-        </div>
-        <div class="popup-item">
-          <span class="popup-label">風向風速</span>
-          <span class="popup-val" style="font-size: 0.8rem;">${formattedWindSpd} (${formattedWindDir})</span>
-        </div>
-      </div>
-      <div class="popup-grid">
-        <div class="popup-item" style="grid-column: span 2;">
-          <span class="popup-label">測站海拔高度</span>
-          <span class="popup-val" style="font-size: 0.8rem; color: #a7f3d0;">${st.StationAltitude.toFixed(1)} 公尺 (m)</span>
+        <div class="popup-item" style="grid-column: span 2; margin-top: 8px;">
+          <span class="popup-label" style="font-size: 0.75rem;">累積降雨量</span>
+          <span class="popup-val" style="color: #60a5fa; font-size: 1.25rem;">${rain !== null ? rain.toFixed(1) + ' mm' : '無資料'}</span>
         </div>
       </div>
       <div class="popup-rain-alert" style="${rainAlertClass || 'background: rgba(255, 255, 255, 0.05); color: var(--text-secondary);'}">
@@ -695,9 +568,7 @@ function renderMapMarkers() {
     `;
 
     marker.bindPopup(popupContent);
-    
-    // Add lightweight tooltips for instant mouse-over reading
-    marker.bindTooltip(`${st.StationName}: ${tooltipVal}`, {
+    marker.bindTooltip(`網格 ${st.GridId}: ${tooltipVal}`, {
       direction: "top",
       offset: [0, -10],
       opacity: 0.85
@@ -706,43 +577,35 @@ function renderMapMarkers() {
     stationMarkersGroup.addLayer(marker);
   });
   
-  // Auto zoom map to selected county if we filter down
   if (state.selectedCounty !== "all" && latLons.length > 0) {
     const bounds = L.latLngBounds(latLons);
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 11 });
   } else if (state.selectedCounty === "all") {
-    // Reset view to Taiwan overview if zoomed-in
     if (map.getZoom() > 9) {
       map.setView([23.8, 121.0], 8);
     }
   }
 }
 
-// --- Map Legend Populator ---
+// --- Map Legend ---
 function renderMapLegend() {
   const title = document.getElementById("legend-title");
   const container = document.getElementById("legend-items");
   container.innerHTML = "";
   
-  if (state.mapMode === "temp") {
-    title.textContent = "即時氣溫 (°C)";
-    TEMP_LEVELS.forEach(lvl => {
+  if (state.mapMode === "alert") {
+    title.textContent = "降雨警戒層級";
+    RAIN_LEVELS.filter(lvl => lvl.min >= 40).forEach(lvl => {
       const item = document.createElement("div");
       item.className = "legend-item";
-      
-      let valText = "";
-      if (lvl.min === -Infinity) valText = `< ${lvl.max}°`;
-      else if (lvl.max === Infinity) valText = `> ${lvl.min}°`;
-      else valText = `${lvl.min}-${lvl.max}°`;
-      
       item.innerHTML = `
         <span class="legend-color" style="background-color: ${lvl.color}"></span>
-        <span>${lvl.label.split(" ")[0]} (${valText})</span>
+        <span>${lvl.label}</span>
       `;
       container.appendChild(item);
     });
   } else {
-    title.textContent = "當日累積雨量 (mm)";
+    title.textContent = "累積雨量 (mm)";
     RAIN_LEVELS.forEach(lvl => {
       const item = document.createElement("div");
       item.className = "legend-item";
@@ -761,23 +624,15 @@ function renderMapLegend() {
   }
 }
 
-// --- ECharts Visualizations Renderer ---
+// --- ECharts plotting ---
 function renderCharts() {
-  initRankingCharts();
-  initScatterChart();
-  initCountyChart();
-}
-
-// --- Rankings Tab ---
-function initRankingCharts() {
+  // 1. Rain Rankings (Highest 15)
   const textStyle = { color: "#9ca3af", fontFamily: "Outfit, Noto Sans TC, sans-serif" };
-
-  // 1. Rain Rankings (Highest 10)
   const validRainList = [...state.filteredData]
     .filter(st => st.Precipitation !== null)
     .sort((a, b) => b.Precipitation - a.Precipitation)
-    .slice(0, 10)
-    .reverse(); // reverse for horizontal chart alignment
+    .slice(0, 15)
+    .reverse();
 
   const rainChartDom = document.getElementById("chart-rain-ranking");
   if (rainChartDom) {
@@ -800,7 +655,7 @@ function initRankingCharts() {
       },
       yAxis: {
         type: "category",
-        data: validRainList.map(st => st.StationName),
+        data: validRainList.map(st => `${st.CountyName} (${st.GridId})`),
         axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
         axisLabel: { textStyle: textStyle }
       },
@@ -811,287 +666,145 @@ function initRankingCharts() {
           data: validRainList.map(st => st.Precipitation),
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: "#10b981" },
-              { offset: 0.7, color: "#3b82f6" },
-              { offset: 1, color: "#8b5cf6" }
+              { offset: 0, color: "#3b82f6" },
+              { offset: 0.7, color: "#10b981" },
+              { offset: 1, color: "#eab308" }
             ]),
             borderRadius: [0, 4, 4, 0]
           },
-          barWidth: "50%"
+          barWidth: "60%"
         }
       ]
     };
     state.charts.rainRank.setOption(option);
   }
 
-  // 2. Temperature Rankings (Highest 10)
-  const validTempList = [...state.filteredData]
-    .filter(st => st.AirTemperature !== null)
-    .sort((a, b) => b.AirTemperature - a.AirTemperature)
-    .slice(0, 10)
-    .reverse();
-
-  const tempChartDom = document.getElementById("chart-temp-ranking");
-  if (tempChartDom) {
-    if (!state.charts.tempRank) {
-      state.charts.tempRank = echarts.init(tempChartDom);
+  // 2. Rainfall Histogram Chart
+  const histChartDom = document.getElementById("chart-rain-histogram");
+  if (histChartDom) {
+    if (!state.charts.histogram) {
+      state.charts.histogram = echarts.init(histChartDom);
     }
-    
+
+    // Bin grids by rain thresholds
+    const bins = { "0 mm (無雨)": 0, "0.1-40 mm (微量)": 0, "40-200 mm (大雨)": 0, "200-350 mm (豪雨)": 0, "350-500 mm (大豪雨)": 0, ">=500 mm (超大豪雨)": 0 };
+    state.filteredData.forEach(st => {
+      const r = st.Precipitation;
+      if (r === null || r < 0.1) bins["0 mm (無雨)"]++;
+      else if (r < 40) bins["0.1-40 mm (微量)"]++;
+      else if (r < 200) bins["40-200 mm (大雨)"]++;
+      else if (r < 350) bins["200-350 mm (豪雨)"]++;
+      else if (r < 500) bins["350-500 mm (大豪雨)"]++;
+      else bins[">=500 mm (超大豪雨)"]++;
+    });
+
     const option = {
       backgroundColor: "transparent",
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        formatter: "{b}: {c} °C"
-      },
-      grid: { left: "4%", right: "8%", bottom: "3%", top: "4%", containLabel: true },
+      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+      grid: { left: "4%", right: "4%", bottom: "8%", top: "8%", containLabel: true },
       xAxis: {
+        type: "category",
+        data: Object.keys(bins),
+        axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
+        axisLabel: { textStyle: textStyle, interval: 0, rotate: 15 }
+      },
+      yAxis: {
         type: "value",
         splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
         axisLabel: { textStyle: textStyle }
       },
-      yAxis: {
-        type: "category",
-        data: validTempList.map(st => st.StationName),
-        axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
-        axisLabel: { textStyle: textStyle }
-      },
       series: [
         {
-          name: "即時氣溫",
+          name: "網格數量",
           type: "bar",
-          data: validTempList.map(st => st.AirTemperature),
+          data: Object.values(bins),
           itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: "#eab308" },
-              { offset: 0.7, color: "#f97316" },
-              { offset: 1, color: "#ef4444" }
-            ]),
-            borderRadius: [0, 4, 4, 0]
+            color: function (params) {
+              const colors = ["#4b5563", "#3b82f6", "#eab308", "#f97316", "#ef4444", "#c084fc"];
+              return colors[params.dataIndex];
+            },
+            borderRadius: [4, 4, 0, 0]
           },
           barWidth: "50%"
         }
       ]
     };
-    state.charts.tempRank.setOption(option);
-  }
-}
-
-// --- Altitude vs Temp Correlation Tab ---
-function initScatterChart() {
-  const scatterChartDom = document.getElementById("chart-altitude-scatter");
-  if (!scatterChartDom) return;
-
-  if (!state.charts.scatter) {
-    state.charts.scatter = echarts.init(scatterChartDom);
+    state.charts.histogram.setOption(option);
   }
 
-  const textStyle = { color: "#9ca3af", fontFamily: "Outfit, Noto Sans TC, sans-serif" };
-  
-  // Format data: [Altitude, Temperature, StationName, CountyName]
-  const scatterPoints = state.filteredData
-    .filter(st => st.AirTemperature !== null)
-    .map(st => [st.StationAltitude, st.AirTemperature, st.StationName, st.CountyName]);
-
-  // Calculate Linear Regression Line (y = mx + b)
-  let regressionSeries = [];
-  if (scatterPoints.length > 1) {
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    const n = scatterPoints.length;
-    
-    scatterPoints.forEach(p => {
-      sumX += p[0];
-      sumY += p[1];
-      sumXY += p[0] * p[1];
-      sumXX += p[0] * p[0];
-    });
-    
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-    
-    const minAlt = Math.min(...scatterPoints.map(p => p[0]));
-    const maxAlt = Math.max(...scatterPoints.map(p => p[0]));
-    
-    regressionSeries = [
-      {
-        name: "海拔降溫趨勢線",
-        type: "line",
-        showSymbol: false,
-        data: [
-          [minAlt, slope * minAlt + intercept],
-          [maxAlt, slope * maxAlt + intercept]
-        ],
-        lineStyle: {
-          color: "#f43f5e",
-          width: 2,
-          type: "dashed"
-        },
-        tooltip: { show: false }
-      }
-    ];
-  }
-
-  const option = {
-    backgroundColor: "transparent",
-    tooltip: {
-      trigger: "item",
-      formatter: function (params) {
-        if (params.seriesType === "scatter") {
-          return `<div style="font-family: sans-serif; font-size: 0.85rem;">
-            <strong>${params.data[2]} (${params.data[3]})</strong><br/>
-            海拔高度: ${params.data[0].toFixed(1)} m<br/>
-            即時溫度: ${params.data[1].toFixed(1)} °C
-          </div>`;
-        }
-        return "";
-      }
-    },
-    grid: { left: "4%", right: "6%", bottom: "8%", top: "8%", containLabel: true },
-    xAxis: {
-      name: "海拔高度 (公尺)",
-      nameLocation: "center",
-      nameGap: 30,
-      type: "value",
-      splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
-      axisLabel: { textStyle: textStyle },
-      axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } }
-    },
-    yAxis: {
-      name: "即時氣溫 (°C)",
-      type: "value",
-      splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
-      axisLabel: { textStyle: textStyle },
-      axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } }
-    },
-    series: [
-      {
-        name: "測站數據",
-        type: "scatter",
-        data: scatterPoints,
-        symbolSize: function (data) {
-          // size of scatter point relates to altitude slightly, but mostly fixed
-          return 10;
-        },
-        itemStyle: {
-          color: function (params) {
-            const temp = params.data[1];
-            const matchedLevel = TEMP_LEVELS.find(lvl => temp >= lvl.min && temp < lvl.max);
-            return matchedLevel ? matchedLevel.color : "#4b5563";
-          },
-          borderColor: "rgba(255, 255, 255, 0.4)",
-          borderWidth: 1
-        }
-      },
-      ...regressionSeries
-    ]
-  };
-
-  state.charts.scatter.setOption(option);
-}
-
-// --- County Statistics Distribution Tab ---
-function initCountyChart() {
+  // 3. County Average/Max Rainfall
   const countyChartDom = document.getElementById("chart-county-bar");
-  if (!countyChartDom) return;
-
-  if (!state.charts.county) {
-    state.charts.county = echarts.init(countyChartDom);
-  }
-
-  const textStyle = { color: "#9ca3af", fontFamily: "Outfit, Noto Sans TC, sans-serif" };
-
-  // Group and average data by county
-  const countyGroup = {};
-  state.filteredData.forEach(st => {
-    const c = st.CountyName;
-    if (!countyGroup[c]) {
-      countyGroup[c] = { temps: [], rains: [], count: 0 };
+  if (countyChartDom) {
+    if (!state.charts.county) {
+      state.charts.county = echarts.init(countyChartDom);
     }
-    if (st.AirTemperature !== null) countyGroup[c].temps.push(st.AirTemperature);
-    if (st.Precipitation !== null) countyGroup[c].rains.push(st.Precipitation);
-    countyGroup[c].count++;
-  });
 
-  const counties = Object.keys(countyGroup);
-  const avgTemps = [];
-  const avgRains = [];
+    const countyGroup = {};
+    state.filteredData.forEach(st => {
+      const c = st.CountyName;
+      if (!countyGroup[c]) {
+        countyGroup[c] = [];
+      }
+      if (st.Precipitation !== null) countyGroup[c].push(st.Precipitation);
+    });
 
-  counties.forEach(c => {
-    const data = countyGroup[c];
-    const avgT = data.temps.length > 0 ? (data.temps.reduce((s, v) => s + v, 0) / data.temps.length) : null;
-    const avgR = data.rains.length > 0 ? (data.rains.reduce((s, v) => s + v, 0) / data.rains.length) : 0;
-    
-    avgTemps.push(avgT !== null ? parseFloat(avgT.toFixed(1)) : null);
-    avgRains.push(parseFloat(avgR.toFixed(1)));
-  });
+    const counties = Object.keys(countyGroup);
+    const avgRains = [];
+    const maxRains = [];
 
-  const option = {
-    backgroundColor: "transparent",
-    tooltip: {
-      trigger: "axis",
-      axisPointer: { type: "cross" }
-    },
-    legend: {
-      data: ["平均累積雨量", "平均溫度"],
-      textStyle: textStyle,
-      bottom: "0"
-    },
-    grid: { left: "4%", right: "4%", bottom: "12%", top: "8%", containLabel: true },
-    xAxis: [
-      {
-        type: "category",
-        data: counties,
-        axisPointer: { type: "shadow" },
-        axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
-        axisLabel: { 
-          textStyle: textStyle,
-          interval: 0,
-          rotate: counties.length > 10 ? 35 : 0 
+    counties.forEach(c => {
+      const list = countyGroup[c];
+      const avg = list.length > 0 ? (list.reduce((sum, v) => sum + v, 0) / list.length) : 0;
+      const max = list.length > 0 ? Math.max(...list) : 0;
+      avgRains.push(parseFloat(avg.toFixed(1)));
+      maxRains.push(parseFloat(max.toFixed(1)));
+    });
+
+    const option = {
+      backgroundColor: "transparent",
+      tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+      legend: { data: ["縣市平均雨量", "縣市最高雨量"], textStyle: textStyle, bottom: "0" },
+      grid: { left: "4%", right: "4%", bottom: "12%", top: "8%", containLabel: true },
+      xAxis: [
+        {
+          type: "category",
+          data: counties,
+          axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
+          axisLabel: { textStyle: textStyle, interval: 0, rotate: counties.length > 10 ? 35 : 0 }
         }
-      }
-    ],
-    yAxis: [
-      {
-        type: "value",
-        name: "降雨量 (mm)",
-        min: 0,
-        splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
-        axisLabel: { textStyle: textStyle, formatter: "{value} mm" }
-      },
-      {
-        type: "value",
-        name: "氣溫 (°C)",
-        min: 0,
-        max: 40,
-        splitLine: { show: false },
-        axisLabel: { textStyle: textStyle, formatter: "{value} °C" }
-      }
-    ],
-    series: [
-      {
-        name: "平均累積雨量",
-        type: "bar",
-        data: avgRains,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: "#60a5fa" },
-            { offset: 1, color: "rgba(96, 165, 250, 0.1)" }
-          ]),
-          borderRadius: [4, 4, 0, 0]
+      ],
+      yAxis: [
+        {
+          type: "value",
+          name: "累積雨量 (mm)",
+          splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } },
+          axisLabel: { textStyle: textStyle }
         }
-      },
-      {
-        name: "平均溫度",
-        type: "line",
-        yAxisIndex: 1,
-        data: avgTemps,
-        symbol: "circle",
-        symbolSize: 6,
-        lineStyle: { color: "#f43f5e", width: 3 },
-        itemStyle: { color: "#f43f5e" }
-      }
-    ]
-  };
-
-  state.charts.county.setOption(option);
+      ],
+      series: [
+        {
+          name: "縣市平均雨量",
+          type: "bar",
+          data: avgRains,
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: "#3b82f6" },
+              { offset: 1, color: "rgba(59, 130, 246, 0.1)" }
+            ]),
+            borderRadius: [4, 4, 0, 0]
+          }
+        },
+        {
+          name: "縣市最高雨量",
+          type: "line",
+          data: maxRains,
+          symbol: "circle",
+          symbolSize: 6,
+          lineStyle: { color: "#f43f5e", width: 2.5 },
+          itemStyle: { color: "#f43f5e" }
+        }
+      ]
+    };
+    state.charts.county.setOption(option);
+  }
 }

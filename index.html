@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台灣即時氣象與降雨量觀測數據視覺化系統</title>
+  <title>台灣即時降雨量觀測數據視覺化系統 (NCDR API)</title>
   
   <!-- SEO Meta Tags -->
-  <meta name="description" content="本系統串接中華民國中央氣象署 (CWA) 開放資料 API，即時清洗、處理並視覺化全台與台北市各測站之氣候與雨量數據。提供地理資訊地圖與動態統計圖表。">
-  <meta name="keywords" content="中央氣象署, CWA, 氣象API, 降雨量視覺化, 台灣天氣地圖, 氣溫觀測, ECharts, Leaflet">
+  <meta name="description" content="本系統串接國家災害防救科技中心 (NCDR) 開放資料 API，即時清洗、處理並視覺化全台各觀測網格之累積降雨數據。提供地理資訊地圖與動態統計圖表。">
+  <meta name="keywords" content="國家災害防救科技中心, NCDR, 降雨量視覺化, 台灣雨量地圖, 氣象API, ECharts, Leaflet">
   <meta name="author" content="Weather Visualization Project Team">
   
   <!-- Fonts -->
@@ -34,8 +34,8 @@
           <i data-lucide="cloud-rain-wind"></i>
         </div>
         <div class="logo-text">
-          <h1>即時氣象與降雨觀測視覺化系統</h1>
-          <p>RESTful CWA API Real-Time Climate Dashboard</p>
+          <h1>即時降雨觀測與分析系統</h1>
+          <p>RESTful NCDR API Real-Time Precipitation Dashboard</p>
         </div>
       </div>
       
@@ -56,7 +56,7 @@
           <span>更新</span>
         </button>
         
-        <button class="btn btn-primary" id="btn-config-api" title="設定 CWA API 金鑰">
+        <button class="btn btn-primary" id="btn-config-api" title="設定 NCDR API 金鑰">
           <i data-lucide="key"></i>
           <span>API 金鑰</span>
         </button>
@@ -65,47 +65,47 @@
 
     <!-- Key Analytics Cards -->
     <section class="metrics-grid">
-      <div class="metric-card glass-effect border-glow-temp-high">
-        <div class="metric-icon temp-high-icon">
-          <i data-lucide="thermometer"></i>
+      <div class="metric-card glass-effect border-glow-rain">
+        <div class="metric-icon rain-icon">
+          <i data-lucide="droplets"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">全台最高氣溫</p>
-          <h3 class="metric-value text-gradient-temp-high" id="val-max-temp">--.- °C</h3>
-          <p class="metric-subtitle" id="loc-max-temp">測站: -- (--)</p>
+          <p class="metric-title">全台最高降雨量</p>
+          <h3 class="metric-value text-gradient-rain" id="val-max-rain">--.- mm</h3>
+          <p class="metric-subtitle" id="loc-max-rain">網格: -- (--)</p>
         </div>
       </div>
       
       <div class="metric-card glass-effect border-glow-temp-low">
         <div class="metric-icon temp-low-icon">
-          <i data-lucide="thermometer-snowflake"></i>
+          <i data-lucide="cloud-rain"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">全台最低氣溫</p>
-          <h3 class="metric-value text-gradient-temp-low" id="val-min-temp">--.- °C</h3>
-          <p class="metric-subtitle" id="loc-min-temp">測站: -- (--)</p>
+          <p class="metric-title">全台平均降雨量</p>
+          <h3 class="metric-value text-gradient-temp-low" id="val-avg-rain">--.- mm</h3>
+          <p class="metric-subtitle" id="loc-avg-rain">所有監測網格均值</p>
         </div>
       </div>
 
-      <div class="metric-card glass-effect border-glow-rain">
-        <div class="metric-icon rain-icon">
-          <i data-lucide="droplet"></i>
+      <div class="metric-card glass-effect border-glow-temp-high">
+        <div class="metric-icon temp-high-icon">
+          <i data-lucide="alert-triangle"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">全台最大降雨量</p>
-          <h3 class="metric-value text-gradient-rain" id="val-max-rain">--.- mm</h3>
-          <p class="metric-subtitle" id="loc-max-rain">測站: -- (--)</p>
+          <p class="metric-title">警戒網格數</p>
+          <h3 class="metric-value text-gradient-temp-high" id="val-alert-count">--</h3>
+          <p class="metric-subtitle" id="lbl-alert-detail">雨量達大雨(40mm)以上</p>
         </div>
       </div>
 
       <div class="metric-card glass-effect border-glow-stations">
         <div class="metric-icon stations-icon">
-          <i data-lucide="radio"></i>
+          <i data-lucide="grid"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">運作中監測站</p>
+          <p class="metric-title">運作中觀測網格</p>
           <h3 class="metric-value text-gradient-stations" id="val-station-count">--</h3>
-          <p class="metric-subtitle" id="lbl-station-detail">總監測點數</p>
+          <p class="metric-subtitle" id="lbl-station-detail">總觀測點數</p>
         </div>
       </div>
     </section>
@@ -117,12 +117,12 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="map-pin"></i>
-            <h2>氣象測站地理分佈圖</h2>
+            <h2>降雨觀測網格分佈圖</h2>
           </div>
           <div class="map-controls">
             <div class="button-group">
-              <button class="btn-toggle active" id="map-mode-temp">氣溫圖層</button>
-              <button class="btn-toggle" id="map-mode-rain">降雨圖層</button>
+              <button class="btn-toggle active" id="map-mode-rain">累積雨量</button>
+              <button class="btn-toggle" id="map-mode-alert">警戒網格</button>
             </div>
           </div>
         </div>
@@ -166,7 +166,7 @@
           <div id="map"></div>
           <!-- Custom Map Legend -->
           <div class="map-legend glass-effect" id="map-legend">
-            <h4 id="legend-title">溫度級距 (°C)</h4>
+            <h4 id="legend-title">降雨量級 (mm)</h4>
             <div id="legend-items" class="legend-items">
               <!-- Dynamically populated -->
             </div>
@@ -179,42 +179,36 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="bar-chart-3"></i>
-            <h2>氣象數據動態統計圖表</h2>
+            <h2>降雨數據統計與分析</h2>
           </div>
           <div class="chart-tabs">
-            <button class="tab-btn active" data-tab="tab-rankings">雨量/溫度排行</button>
-            <button class="tab-btn" data-tab="tab-scatter">氣溫與海拔高度</button>
-            <button class="tab-btn" data-tab="tab-counties">縣市統計分佈</button>
+            <button class="tab-btn active" data-tab="tab-rankings">降雨排行榜</button>
+            <button class="tab-btn" data-tab="tab-scatter">網格降雨區間</button>
+            <button class="tab-btn" data-tab="tab-counties">縣市降雨分佈</button>
           </div>
         </div>
 
         <!-- Tab: Rankings -->
         <div class="tab-content active" id="tab-rankings">
-          <div class="sub-charts-grid">
-            <div class="echart-container-wrapper">
-              <h3 class="chart-box-title">本日降雨累積排行榜 (Top 10)</h3>
-              <div id="chart-rain-ranking" class="echart-container"></div>
-            </div>
-            <div class="echart-container-wrapper">
-              <h3 class="chart-box-title">即時測站氣溫排行榜 (Top 10)</h3>
-              <div id="chart-temp-ranking" class="echart-container"></div>
-            </div>
+          <div class="echart-container-wrapper full-width-chart">
+            <h3 class="chart-box-title">全台累積降雨量排行榜 (Top 15)</h3>
+            <div id="chart-rain-ranking" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
 
-        <!-- Tab: Altitude Correlation -->
+        <!-- Tab: Rain Histogram -->
         <div class="tab-content" id="tab-scatter">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">氣象測站：氣溫 vs. 海拔高度 (探討海拔降溫效應)</h3>
-            <div id="chart-altitude-scatter" class="echart-container"></div>
+            <h3 class="chart-box-title">監測網格雨量區間分布統計 (網格數量統計)</h3>
+            <div id="chart-rain-histogram" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
 
         <!-- Tab: County Statistics -->
         <div class="tab-content" id="tab-counties">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">各縣市平均溫度與平均累積雨量分佈統計</h3>
-            <div id="chart-county-bar" class="echart-container"></div>
+            <h3 class="chart-box-title">各縣市平均累積雨量分佈統計</h3>
+            <div id="chart-county-bar" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
       </section>
@@ -224,7 +218,7 @@
     <footer class="app-footer glass-effect">
       <div class="footer-info">
         <p>開發展示目的：分散式網路服務 (RESTful Web Service) 實務應用與地理資訊視覺化</p>
-        <p class="data-source-claim">資料來源：中華民國中央氣象署 (CWA) 開放資料平臺。觀測資料每 10-60 分鐘更新。</p>
+        <p class="data-source-claim">資料來源：國家災害防救科技中心 (NCDR) 災防資料服務平台。累積降雨觀測資料即時更新。</p>
       </div>
       <div class="footer-github">
         <a href="https://github.com/" target="_blank" class="github-link">
@@ -239,24 +233,24 @@
   <div class="modal-overlay" id="api-modal">
     <div class="modal-card glass-effect animate-in">
       <div class="modal-header">
-        <h3><i data-lucide="settings" style="vertical-align: middle; margin-right: 8px;"></i>中央氣象署 API 設定</h3>
+        <h3><i data-lucide="settings" style="vertical-align: middle; margin-right: 8px;"></i>NCDR API 設定</h3>
         <button class="modal-close-btn" id="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
-        <p>請輸入您的中央氣象署開放資料 API 授權碼。此金鑰僅會被儲存在您瀏覽器的本地快取 (LocalStorage) 中，不會傳送至任何第三方伺服器。</p>
+        <p>請輸入您的國家災害防救科技中心 (NCDR) 災防資料服務平台 API 授權金鑰 (Token)。金鑰僅會被儲存在您瀏覽器的本地快取 (LocalStorage) 中，不會傳送至其他第三方伺服器。</p>
         
         <div class="form-group">
-          <label for="api-key-input">API 授權碼 (Authorization Key)</label>
-          <input type="password" id="api-key-input" placeholder="請貼上 CWA-XXXXXXX..." autocomplete="off">
+          <label for="api-key-input">NCDR API 金鑰 (Token)</label>
+          <input type="password" id="api-key-input" placeholder="請貼上您的 Token..." autocomplete="off">
           <span class="password-toggle" id="btn-toggle-pw"><i data-lucide="eye"></i></span>
         </div>
         
         <div class="cwa-guide-box">
-          <h4>如何取得 API 授權碼？</h4>
+          <h4>如何取得 NCDR API Token？</h4>
           <ol>
-            <li>前往 <a href="https://opendata.cwa.gov.tw/index" target="_blank" rel="noopener noreferrer">氣象署開放資料平臺網站</a></li>
+            <li>前往 <a href="https://datahub.ncdr.nat.gov.tw/" target="_blank" rel="noopener noreferrer">NCDR 災害防救資料服務平台</a></li>
             <li>註冊並登入會員帳號</li>
-            <li>進入「個人資料」或「API 授權碼」頁面複製您的金鑰</li>
+            <li>申請您所需的降雨量 API 服務即可取得專屬 Token</li>
           </ol>
         </div>
       </div>
