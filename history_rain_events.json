@@ -1,0 +1,85 @@
+{
+  "morakot_2009": {
+    "title": "2009 莫拉克颱風 (Typhoon Morakot)",
+    "description": "台灣氣象史上最極端降雨事件之一。阿里山站創下單日超過 1000 mm、三天累計 2884 mm 的極端紀錄，造成中南部嚴重八八風災。",
+    "data": [
+      { "StationId": "C0H960", "StationName": "阿里山", "StationLatitude": 23.5082, "StationLongitude": 120.8130, "CountyName": "嘉義縣", "Precipitation": 1205.5 },
+      { "StationId": "C0R140", "StationName": "尾寮山", "StationLatitude": 22.8420, "StationLongitude": 120.6540, "CountyName": "屏東縣", "Precipitation": 1156.0 },
+      { "StationId": "C0V250", "StationName": "多納林道", "StationLatitude": 22.9050, "StationLongitude": 120.7200, "CountyName": "高雄市", "Precipitation": 1085.0 },
+      { "StationId": "467550", "StationName": "玉山", "StationLatitude": 23.4876, "StationLongitude": 120.9595, "CountyName": "南投縣", "Precipitation": 780.0 },
+      { "StationId": "C0X090", "StationName": "御油山", "StationLatitude": 23.0180, "StationLongitude": 120.7390, "CountyName": "高雄市", "Precipitation": 982.0 },
+      { "StationId": "467490", "StationName": "臺中", "StationLatitude": 24.1457, "StationLongitude": 120.6843, "CountyName": "臺中市", "Precipitation": 182.5 },
+      { "StationId": "466920", "StationName": "臺北", "StationLatitude": 25.0377, "StationLongitude": 121.5149, "CountyName": "臺北市", "Precipitation": 85.0 },
+      { "StationId": "C0A9F0", "StationName": "內湖", "StationLatitude": 25.0792, "StationLongitude": 121.5946, "CountyName": "臺北市", "Precipitation": 64.0 },
+      { "StationId": "466880", "StationName": "板橋", "StationLatitude": 25.0130, "StationLongitude": 121.4420, "CountyName": "新北市", "Precipitation": 92.0 },
+      { "StationId": "C0I110", "StationName": "三峽", "StationLatitude": 24.9360, "StationLongitude": 121.3734, "CountyName": "新北市", "Precipitation": 115.0 },
+      { "StationId": "467410", "StationName": "臺南", "StationLatitude": 22.9932, "StationLongitude": 120.2033, "CountyName": "臺南市", "Precipitation": 420.0 },
+      { "StationId": "467440", "StationName": "高雄", "StationLatitude": 22.5660, "StationLongitude": 120.3090, "CountyName": "高雄市", "Precipitation": 510.5 },
+      { "StationId": "C0K400", "StationName": "恆春", "StationLatitude": 22.0039, "StationLongitude": 120.7463, "CountyName": "屏東縣", "Precipitation": 280.0 },
+      { "StationId": "467050", "StationName": "新屋", "StationLatitude": 24.9658, "StationLongitude": 121.0315, "CountyName": "桃園市", "Precipitation": 45.0 },
+      { "StationId": "467570", "StationName": "新竹", "StationLatitude": 24.8279, "StationLongitude": 120.9754, "CountyName": "新竹市", "Precipitation": 38.0 },
+      { "StationId": "467650", "StationName": "日月潭", "StationLatitude": 23.8813, "StationLongitude": 120.9081, "CountyName": "南投縣", "Precipitation": 520.0 },
+      { "StationId": "467660", "StationName": "臺東", "StationLatitude": 22.7522, "StationLongitude": 121.1546, "CountyName": "臺東縣", "Precipitation": 340.0 },
+      { "StationId": "466990", "StationName": "花蓮", "StationLatitude": 23.9751, "StationLongitude": 121.6133, "CountyName": "花蓮縣", "Precipitation": 150.0 },
+      { "StationId": "467080", "StationName": "宜蘭", "StationLatitude": 24.7640, "StationLongitude": 121.7565, "CountyName": "宜蘭縣", "Precipitation": 110.0 },
+      { "StationId": "466940", "StationName": "基隆", "StationLatitude": 25.1333, "StationLongitude": 121.7408, "CountyName": "基隆市", "Precipitation": 72.0 },
+      { "StationId": "467300", "StationName": "澎湖", "StationLatitude": 23.5654, "StationLongitude": 119.5631, "CountyName": "澎湖縣", "Precipitation": 32.0 },
+      { "StationId": "C0G650", "StationName": "員林", "StationLatitude": 23.9589, "StationLongitude": 120.5739, "CountyName": "彰化縣", "Precipitation": 280.0 }
+    ]
+  },
+  "gaemi_2024": {
+    "title": "2024 格美颱風 (Typhoon Gaemi)",
+    "description": "中颱格美引進強烈西南氣流，於高雄及屏東山區降下大豪雨，多個平地測站累積雨量亦達 500-800 mm，引發中南部大面積淹水。",
+    "data": [
+      { "StationId": "C0R140", "StationName": "尾寮山", "StationLatitude": 22.8420, "StationLongitude": 120.6540, "CountyName": "屏東縣", "Precipitation": 920.5 },
+      { "StationId": "C0V250", "StationName": "多納林道", "StationLatitude": 22.9050, "StationLongitude": 120.7200, "CountyName": "高雄市", "Precipitation": 880.0 },
+      { "StationId": "C0H960", "StationName": "阿里山", "StationLatitude": 23.5082, "StationLongitude": 120.8130, "CountyName": "嘉義縣", "Precipitation": 780.0 },
+      { "StationId": "C0X090", "StationName": "御油山", "StationLatitude": 23.0180, "StationLongitude": 120.7390, "CountyName": "高雄市", "Precipitation": 810.0 },
+      { "StationId": "467550", "StationName": "玉山", "StationLatitude": 23.4876, "StationLongitude": 120.9595, "CountyName": "南投縣", "Precipitation": 450.0 },
+      { "StationId": "467440", "StationName": "高雄", "StationLatitude": 22.5660, "StationLongitude": 120.3090, "CountyName": "高雄市", "Precipitation": 480.0 },
+      { "StationId": "467410", "StationName": "臺南", "StationLatitude": 22.9932, "StationLongitude": 120.2033, "CountyName": "臺南市", "Precipitation": 380.0 },
+      { "StationId": "C0G650", "StationName": "員林", "StationLatitude": 23.9589, "StationLongitude": 120.5739, "CountyName": "彰化縣", "Precipitation": 210.0 },
+      { "StationId": "467490", "StationName": "臺中", "StationLatitude": 24.1457, "StationLongitude": 120.6843, "CountyName": "臺中市", "Precipitation": 190.0 },
+      { "StationId": "466920", "StationName": "臺北", "StationLatitude": 25.0377, "StationLongitude": 121.5149, "CountyName": "臺北市", "Precipitation": 52.0 },
+      { "StationId": "466880", "StationName": "板橋", "StationLatitude": 25.0130, "StationLongitude": 121.4420, "CountyName": "新北市", "Precipitation": 64.0 },
+      { "StationId": "C0ILA0", "StationName": "太平山", "StationLatitude": 24.4980, "StationLongitude": 121.5310, "CountyName": "宜蘭縣", "Precipitation": 620.0 },
+      { "StationId": "467080", "StationName": "宜蘭", "StationLatitude": 24.7640, "StationLongitude": 121.7565, "CountyName": "宜蘭縣", "Precipitation": 210.0 },
+      { "StationId": "466990", "StationName": "花蓮", "StationLatitude": 23.9751, "StationLongitude": 121.6133, "CountyName": "花蓮縣", "Precipitation": 380.0 }
+    ]
+  },
+  "meiyu_front": {
+    "title": "梅雨季滯留鋒面 (Meiyu Front)",
+    "description": "典型梅雨季滯留鋒面配合中小尺度對流系統（MCS），在西半部平地及山區引發劇烈豪雨。",
+    "data": [
+      { "StationId": "466920", "StationName": "臺北", "StationLatitude": 25.0377, "StationLongitude": 121.5149, "CountyName": "臺北市", "Precipitation": 182.0 },
+      { "StationId": "466880", "StationName": "板橋", "StationLatitude": 25.0130, "StationLongitude": 121.4420, "CountyName": "新北市", "Precipitation": 195.5 },
+      { "StationId": "C0I110", "StationName": "三峽", "StationLatitude": 24.9360, "StationLongitude": 121.3734, "CountyName": "新北市", "Precipitation": 220.0 },
+      { "StationId": "C0A9F0", "StationName": "內湖", "StationLatitude": 25.0792, "StationLongitude": 121.5946, "CountyName": "臺北市", "Precipitation": 150.0 },
+      { "StationId": "467490", "StationName": "臺中", "StationLatitude": 24.1457, "StationLongitude": 120.6843, "CountyName": "臺中市", "Precipitation": 145.0 },
+      { "StationId": "467410", "StationName": "臺南", "StationLatitude": 22.9932, "StationLongitude": 120.2033, "CountyName": "臺南市", "Precipitation": 95.0 },
+      { "StationId": "467440", "StationName": "高雄", "StationLatitude": 22.5660, "StationLongitude": 120.3090, "CountyName": "高雄市", "Precipitation": 88.0 },
+      { "StationId": "467050", "StationName": "新屋", "StationLatitude": 24.9658, "StationLongitude": 121.0315, "CountyName": "桃園市", "Precipitation": 210.0 },
+      { "StationId": "467570", "StationName": "新竹", "StationLatitude": 24.8279, "StationLongitude": 120.9754, "CountyName": "新竹市", "Precipitation": 165.0 },
+      { "StationId": "467080", "StationName": "宜蘭", "StationLatitude": 24.7640, "StationLongitude": 121.7565, "CountyName": "宜蘭縣", "Precipitation": 45.0 },
+      { "StationId": "466990", "StationName": "花蓮", "StationLatitude": 23.9751, "StationLongitude": 121.6133, "CountyName": "花蓮縣", "Precipitation": 32.0 },
+      { "StationId": "467660", "StationName": "臺東", "StationLatitude": 22.7522, "StationLongitude": 121.1546, "CountyName": "臺東縣", "Precipitation": 15.0 }
+    ]
+  },
+  "northeast_monsoon": {
+    "title": "冬季東北季風迎風面降雨 (Northeast Monsoon)",
+    "description": "冬季東北季風吹拂，受地形抬升影響，宜蘭地區、基隆北海岸及大臺北山區持續降雨，中南部則因處於背風面而晴朗無雨。",
+    "data": [
+      { "StationId": "467080", "StationName": "宜蘭", "StationLatitude": 24.7640, "StationLongitude": 121.7565, "CountyName": "宜蘭縣", "Precipitation": 165.5 },
+      { "StationId": "C0ILA0", "StationName": "太平山", "StationLatitude": 24.4980, "StationLongitude": 121.5310, "CountyName": "宜蘭縣", "Precipitation": 192.0 },
+      { "StationId": "466940", "StationName": "基隆", "StationLatitude": 25.1333, "StationLongitude": 121.7408, "CountyName": "基隆市", "Precipitation": 125.0 },
+      { "StationId": "466900", "StationName": "鞍部", "StationLatitude": 25.1826, "StationLongitude": 121.5297, "CountyName": "臺北市", "Precipitation": 95.0 },
+      { "StationId": "466920", "StationName": "臺北", "StationLatitude": 25.0377, "StationLongitude": 121.5149, "CountyName": "臺北市", "Precipitation": 38.0 },
+      { "StationId": "466880", "StationName": "板橋", "StationLatitude": 25.0130, "StationLongitude": 121.4420, "CountyName": "新北市", "Precipitation": 25.0 },
+      { "StationId": "466990", "StationName": "花蓮", "StationLatitude": 23.9751, "StationLongitude": 121.6133, "CountyName": "花蓮縣", "Precipitation": 18.0 },
+      { "StationId": "467490", "StationName": "臺中", "StationLatitude": 24.1457, "StationLongitude": 120.6843, "CountyName": "臺中市", "Precipitation": 0.0 },
+      { "StationId": "467410", "StationName": "臺南", "StationLatitude": 22.9932, "StationLongitude": 120.2033, "CountyName": "臺南市", "Precipitation": 0.0 },
+      { "StationId": "467440", "StationName": "高雄", "StationLatitude": 22.5660, "StationLongitude": 120.3090, "CountyName": "高雄市", "Precipitation": 0.0 },
+      { "StationId": "C0K400", "StationName": "恆春", "StationLatitude": 22.0039, "StationLongitude": 120.7463, "CountyName": "屏東縣", "Precipitation": 0.0 }
+    ]
+  }
+}

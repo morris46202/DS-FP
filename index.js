@@ -82,20 +82,36 @@ const DEMO_CIOT_DATA = [
   { StationId: "STA_PEN_01", StationName: "馬公中正路", StationLatitude: 23.5654, StationLongitude: 119.5631, CountyName: "澎湖縣", Precipitation: 0.0 }
 ];
 
+// --- State variables for history data ---
+let historicalEvents = {};
+
 // --- Initialization ---
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   // 1. Initialize Icons
   lucide.createIcons();
   
-  // 2. Initialize Map
+  // 2. Load Historical Data
+  await loadHistoricalData();
+  
+  // 3. Initialize Map
   initMap();
   
-  // 3. Bind Events
+  // 4. Bind Events
   bindEvents();
   
-  // 4. Initial Data Load
+  // 5. Initial Data Load
   loadData();
 });
+
+// Load historical JSON
+async function loadHistoricalData() {
+  try {
+    const response = await fetch("history_rain_events.json");
+    historicalEvents = await response.json();
+  } catch (e) {
+    console.error("載入歷史雨量資料失敗:", e);
+  }
+}
 
 // --- Map Initialization ---
 function initMap() {
@@ -190,6 +206,19 @@ function bindEvents() {
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       state.searchQuery = e.target.value.trim().toLowerCase();
+      filterAndRender();
+    });
+  }
+
+  const selectEvent = document.getElementById("select-demo-event");
+  if (selectEvent) {
+    selectEvent.addEventListener("change", (e) => {
+      const val = e.target.value;
+      if (val === "current") {
+        state.weatherData = JSON.parse(JSON.stringify(DEMO_CIOT_DATA));
+      } else if (historicalEvents[val]) {
+        state.weatherData = JSON.parse(JSON.stringify(historicalEvents[val].data));
+      }
       filterAndRender();
     });
   }
@@ -368,13 +397,16 @@ function startCacheCountdown(timestamp) {
 function updateHeaderUI() {
   const indicator = document.getElementById("mode-indicator");
   const modeText = document.getElementById("status-mode-text");
+  const demoEventContainer = document.getElementById("demo-event-container");
   
   if (state.mode === "demo") {
     indicator.className = "status-indicator demo";
     modeText.textContent = "Demo 模擬數據模式";
+    if (demoEventContainer) demoEventContainer.style.display = "flex";
   } else {
     indicator.className = "status-indicator active";
     modeText.textContent = "CIOT 即時連線模式";
+    if (demoEventContainer) demoEventContainer.style.display = "none";
   }
 }
 
