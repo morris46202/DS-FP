@@ -1,24 +1,15 @@
-// NCDR Rainfall Data Visualization Dashboard
+// Civil IoT Taiwan (CIOT) Rainfall Data Visualization Dashboard
 // Uses Vanilla JS, Leaflet for Maps, and Apache ECharts for Graphs
 
 // --- Constants & Config ---
-const NCDR_API_URL_BASE = "https://dataapi.ncdr.nat.gov.tw/NCDRAPI/OpenData/NCDR/ObsRain/";
-const CACHE_KEY = "ncdr_weather_dashboard_cache";
-const API_KEY_KEY = "ncdr_api_authorization_key";
+const CIOT_API_URL = "https://sta.colife.org.tw/STA_RainSewer/v1.0/Things?$expand=Locations,Datastreams/Observations($orderby=phenomenonTime%20desc;$top=1)&$top=200";
+const CACHE_KEY = "ciot_weather_dashboard_cache";
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
-
-const COUNTIES = [
-  "臺北市", "新北市", "桃園市", "臺中市", "臺南市", "高雄市", 
-  "基隆市", "新竹市", "新竹縣", "苗栗縣", "彰化縣", "南投縣", 
-  "雲林縣", "嘉義市", "嘉義縣", "屏東縣", "宜蘭縣", "花蓮縣", 
-  "臺東縣", "澎湖縣"
-];
 
 // --- State Management ---
 let state = {
-  mode: "demo", // "demo" or "api"
-  apiKey: "",
-  weatherData: [],      // Cleaned active weather data (NCDR grids)
+  mode: "live", // "live" (public connection, no key needed) or "demo"
+  weatherData: [],      // Cleaned active weather data
   filteredData: [],     // Filtered data based on UI search/filters
   selectedCounty: "all",
   searchQuery: "",
@@ -27,7 +18,7 @@ let state = {
   charts: {}            // Store chart instances
 };
 
-// --- Rain Standard Levels (Taiwan CWA definitions used by NCDR) ---
+// --- Rain Standard Levels (Taiwan CWA definitions used by CIOT) ---
 const RAIN_LEVELS = [
   { label: "無雨 (0 mm)", min: 0, max: 0.1, color: "#4b5563" },
   { label: "微量 (0.1-40 mm)", min: 0.1, max: 40, color: "#3b82f6" },
@@ -42,77 +33,53 @@ let map;
 let stationMarkersGroup;
 
 // --- Demo Mock Data ---
-// A geographically accurate representation of 32 grid nodes across Taiwan with diverse rainfall patterns.
-const DEMO_NCDR_DATA = [
-  // Taipei Grid nodes
-  { Grid5000: "121.51_25.03", WGS84_Lon: 121.5149, WGS84_Lat: 25.0377, RainValue: 12.5, CityName: "臺北市", YY: "2026", MM: "06" },
-  { Grid5000: "121.54_25.08", WGS84_Lon: 121.5435, WGS84_Lat: 25.0838, RainValue: 5.0, CityName: "臺北市", YY: "2026", MM: "06" },
-  { Grid5000: "121.59_25.07", WGS84_Lon: 121.5946, WGS84_Lat: 25.0792, RainValue: 95.0, CityName: "臺北市", YY: "2026", MM: "06" }, // Heavy Rain
-  { Grid5000: "121.53_25.16", WGS84_Lon: 121.5368, WGS84_Lat: 25.1621, RainValue: 135.5, CityName: "臺北市", YY: "2026", MM: "06" }, // Heavy Rain
+// 28 simulated rain gauge sensors corresponding to public下水道雨量計 (Sewer rain gauges)
+const DEMO_CIOT_DATA = [
+  { StationId: "STA_TPE_01", StationName: "信義防汛站", StationLatitude: 25.0333, StationLongitude: 121.5645, CountyName: "臺北市", Precipitation: 12.5 },
+  { StationId: "STA_TPE_02", StationName: "大直抽水站", StationLatitude: 25.0812, StationLongitude: 121.5420, CountyName: "臺北市", Precipitation: 5.0 },
+  { StationId: "STA_TPE_03", StationName: "內湖路二段", StationLatitude: 25.0792, StationLongitude: 121.5946, CountyName: "臺北市", Precipitation: 95.0 }, // Heavy Rain
+  { StationId: "STA_TPE_04", StationName: "北投溫泉區", StationLatitude: 25.1375, StationLongitude: 121.5055, CountyName: "臺北市", Precipitation: 135.5 }, // Heavy Rain
   
-  // New Taipei Grid nodes
-  { Grid5000: "121.44_25.01", WGS84_Lon: 121.4420, WGS84_Lat: 25.0130, RainValue: 48.5, CityName: "新北市", YY: "2026", MM: "06" },
-  { Grid5000: "121.37_24.93", WGS84_Lon: 121.3734, WGS84_Lat: 24.9360, RainValue: 245.0, CityName: "新北市", YY: "2026", MM: "06" }, // Extremely Heavy Rain
-  { Grid5000: "121.72_25.02", WGS84_Lon: 121.7230, WGS84_Lat: 25.0240, RainValue: 180.0, CityName: "新北市", YY: "2026", MM: "06" },
+  { StationId: "STA_NTPC_01", StationName: "板橋文化路", StationLatitude: 25.0130, StationLongitude: 121.4620, CountyName: "新北市", Precipitation: 48.5 },
+  { StationId: "STA_NTPC_02", StationName: "三峽介壽路", StationLatitude: 24.9360, StationLongitude: 121.3734, CountyName: "新北市", Precipitation: 245.0 }, // Extremely Heavy Rain
+  { StationId: "STA_NTPC_03", StationName: "汐止大同路", StationLatitude: 25.0630, StationLongitude: 121.6590, CountyName: "新北市", Precipitation: 180.0 },
   
-  // Keelung
-  { Grid5000: "121.74_25.13", WGS84_Lon: 121.7408, WGS84_Lat: 25.1333, RainValue: 35.0, CityName: "基隆市", YY: "2026", MM: "06" },
+  { StationId: "STA_KEE_01", StationName: "基隆港東岸", StationLatitude: 25.1333, StationLongitude: 121.7408, CountyName: "基隆市", Precipitation: 35.0 },
   
-  // Taoyuan
-  { Grid5000: "121.03_24.96", WGS84_Lon: 121.0315, WGS84_Lat: 24.9658, RainValue: 0.0, CityName: "桃園市", YY: "2026", MM: "06" },
-  { Grid5000: "121.21_24.90", WGS84_Lon: 121.2150, WGS84_Lat: 24.9030, RainValue: 8.5, CityName: "桃園市", YY: "2026", MM: "06" },
+  { StationId: "STA_TYN_01", StationName: "中壢中正路", StationLatitude: 24.9535, StationLongitude: 121.2250, CountyName: "桃園市", Precipitation: 0.0 },
+  { StationId: "STA_TYN_02", StationName: "桃園大興西路", StationLatitude: 25.0060, StationLongitude: 121.2980, CountyName: "桃園市", Precipitation: 8.5 },
   
-  // Hsinchu
-  { Grid5000: "120.97_24.82", WGS84_Lon: 120.9754, WGS84_Lat: 24.8279, RainValue: 0.0, CityName: "新竹市", YY: "2026", MM: "06" },
-  { Grid5000: "121.15_24.70", WGS84_Lon: 121.1520, WGS84_Lat: 24.7040, RainValue: 12.0, CityName: "新竹縣", YY: "2026", MM: "06" },
+  { StationId: "STA_HSC_01", StationName: "新竹關埔區", StationLatitude: 24.7890, StationLongitude: 121.0150, CountyName: "新竹市", Precipitation: 0.0 },
+  { StationId: "STA_HSK_01", StationName: "竹北光明六路", StationLatitude: 24.8270, StationLongitude: 121.0120, CountyName: "新竹縣", Precipitation: 12.0 },
   
-  // Miaoli
-  { Grid5000: "120.82_24.56", WGS84_Lon: 120.8220, WGS84_Lat: 24.5620, RainValue: 2.5, CityName: "苗栗縣", YY: "2026", MM: "06" },
+  { StationId: "STA_MIA_01", StationName: "苗栗中正路", StationLatitude: 24.5610, StationLongitude: 120.8210, CountyName: "苗栗縣", Precipitation: 512.0 }, // Extremely Torrential Rain!
   
-  // Taichung
-  { Grid5000: "120.68_24.14", WGS84_Lon: 120.6843, WGS84_Lat: 24.1457, RainValue: 1.0, CityName: "臺中市", YY: "2026", MM: "06" },
-  { Grid5000: "120.95_24.25", WGS84_Lon: 120.9540, WGS84_Lat: 24.2560, RainValue: 56.0, CityName: "臺中市", YY: "2026", MM: "06" },
+  { StationId: "STA_TXG_01", StationName: "西屯市政路", StationLatitude: 24.1620, StationLongitude: 120.6400, CountyName: "臺中市", Precipitation: 1.0 },
+  { StationId: "STA_TXG_02", StationName: "太平中山路", StationLatitude: 24.1280, StationLongitude: 120.7180, CountyName: "臺中市", Precipitation: 56.0 },
   
-  // Changhua
-  { Grid5000: "120.57_23.95", WGS84_Lon: 120.5739, WGS84_Lat: 23.9589, RainValue: 1.5, CityName: "彰化縣", YY: "2026", MM: "06" },
+  { StationId: "STA_CHW_01", StationName: "彰化中山路", StationLatitude: 24.0810, StationLongitude: 120.5430, CountyName: "彰化縣", Precipitation: 1.5 },
   
-  // Nantou
-  { Grid5000: "120.90_23.88", WGS84_Lon: 120.9081, WGS84_Lat: 23.8813, RainValue: 24.0, CityName: "南投縣", YY: "2026", MM: "06" },
-  { Grid5000: "120.95_23.48", WGS84_Lon: 120.9595, WGS84_Lat: 23.4876, RainValue: 65.5, CityName: "南投縣", YY: "2026", MM: "06" },
+  { StationId: "STA_NTO_01", StationName: "埔里中正路", StationLatitude: 23.9680, StationLongitude: 120.9680, CountyName: "南投縣", Precipitation: 24.0 },
   
-  // Yunlin
-  { Grid5000: "120.43_23.70", WGS84_Lon: 120.4320, WGS84_Lat: 23.7040, RainValue: 0.0, CityName: "雲林縣", YY: "2026", MM: "06" },
+  { StationId: "STA_YLN_01", StationName: "斗六民生路", StationLatitude: 23.7090, StationLongitude: 120.5430, CountyName: "雲林縣", Precipitation: 0.0 },
   
-  // Chiayi
-  { Grid5000: "120.45_23.48", WGS84_Lon: 120.4530, WGS84_Lat: 23.4820, RainValue: 0.0, CityName: "嘉義市", YY: "2026", MM: "06" },
-  { Grid5000: "120.81_23.50", WGS84_Lon: 120.8130, WGS84_Lat: 23.5082, RainValue: 365.0, CityName: "嘉義縣", YY: "2026", MM: "06" }, // Torrential Rain!
+  { StationId: "STA_CYI_01", StationName: "嘉義中山路", StationLatitude: 23.4810, StationLongitude: 120.4530, CountyName: "嘉義市", Precipitation: 0.0 },
+  { StationId: "STA_CYQ_01", StationName: "民雄工業區", StationLatitude: 23.5510, StationLongitude: 120.4280, CountyName: "嘉義縣", Precipitation: 365.0 }, // Torrential Rain
   
-  // Tainan
-  { Grid5000: "120.20_22.99", WGS84_Lon: 120.2033, WGS84_Lat: 22.9932, RainValue: 0.0, CityName: "臺南市", YY: "2026", MM: "06" },
+  { StationId: "STA_TNN_01", StationName: "永康中華路", StationLatitude: 23.0250, StationLongitude: 120.2430, CountyName: "臺南市", Precipitation: 0.0 },
   
-  // Kaohsiung
-  { Grid5000: "120.30_22.56", WGS84_Lon: 120.3090, WGS84_Lat: 22.5660, RainValue: 0.0, CityName: "高雄市", YY: "2026", MM: "06" },
-  { Grid5000: "120.65_22.90", WGS84_Lon: 120.6520, WGS84_Lat: 22.9040, RainValue: 4.0, CityName: "高雄市", YY: "2026", MM: "06" },
+  { StationId: "STA_KHH_01", StationName: "苓雅成功路", StationLatitude: 22.6160, StationLongitude: 120.2980, CountyName: "高雄市", Precipitation: 0.0 },
+  { StationId: "STA_KHH_02", StationName: "鳳山光遠路", StationLatitude: 22.6250, StationLongitude: 120.3580, CountyName: "高雄市", Precipitation: 4.0 },
   
-  // Pingtung
-  { Grid5000: "120.74_22.00", WGS84_Lon: 120.7463, WGS84_Lat: 22.0039, RainValue: 0.0, CityName: "屏東縣", YY: "2026", MM: "06" },
-  { Grid5000: "120.71_22.45", WGS84_Lon: 120.7120, WGS84_Lat: 22.4560, RainValue: 45.0, CityName: "屏東縣", YY: "2026", MM: "06" },
+  { StationId: "STA_PTS_01", StationName: "屏東民生路", StationLatitude: 22.6680, StationLongitude: 120.4860, CountyName: "屏東縣", Precipitation: 0.0 },
   
-  // Yilan
-  { Grid5000: "121.75_24.76", WGS84_Lon: 121.7565, WGS84_Lat: 24.7640, RainValue: 55.0, CityName: "宜蘭縣", YY: "2026", MM: "06" },
+  { StationId: "STA_ILA_01", StationName: "宜蘭神農路", StationLatitude: 24.7520, StationLongitude: 121.7510, CountyName: "宜蘭縣", Precipitation: 380.0 }, // Torrential Rain
   
-  // Hualien
-  { Grid5000: "121.61_23.97", WGS84_Lon: 121.6133, WGS84_Lat: 23.9751, RainValue: 32.5, CityName: "花蓮縣", YY: "2026", MM: "06" },
+  { StationId: "STA_HUN_01", StationName: "花蓮中山路", StationLatitude: 23.9780, StationLongitude: 121.6050, CountyName: "花蓮縣", Precipitation: 32.5 },
   
-  // Taitung
-  { Grid5000: "121.15_22.75", WGS84_Lon: 121.1546, WGS84_Lat: 22.7522, RainValue: 0.0, CityName: "臺東縣", YY: "2026", MM: "06" },
+  { StationId: "STA_TTT_01", StationName: "臺東中華路", StationLatitude: 22.7560, StationLongitude: 121.1490, CountyName: "臺東縣", Precipitation: 0.0 },
   
-  // Penghu
-  { Grid5000: "119.56_23.56", WGS84_Lon: 119.5631, WGS84_Lat: 23.5654, RainValue: 0.0, CityName: "澎湖縣", YY: "2026", MM: "06" },
-  
-  // High extremes for alerts demonstration
-  { Grid5000: "120.80_24.40", WGS84_Lon: 120.8040, WGS84_Lat: 24.4020, RainValue: 512.0, CityName: "苗栗縣", YY: "2026", MM: "06" }, // Extremely Torrential Rain!
-  { Grid5000: "121.40_24.60", WGS84_Lon: 121.4020, WGS84_Lat: 24.6030, RainValue: 380.0, CityName: "宜蘭縣", YY: "2026", MM: "06" }  // Torrential Rain
+  { StationId: "STA_PEN_01", StationName: "馬公中正路", StationLatitude: 23.5654, StationLongitude: 119.5631, CountyName: "澎湖縣", Precipitation: 0.0 }
 ];
 
 // --- Initialization ---
@@ -120,21 +87,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1. Initialize Icons
   lucide.createIcons();
   
-  // 2. Load API Key from local storage if exists
-  const storedKey = localStorage.getItem(API_KEY_KEY);
-  if (storedKey) {
-    state.apiKey = storedKey;
-    state.mode = "api";
-    document.getElementById("api-key-input").value = storedKey;
-  }
-  
-  // 3. Initialize Map
+  // 2. Initialize Map
   initMap();
   
-  // 4. Bind Events
+  // 3. Bind Events
   bindEvents();
   
-  // 5. Initial Data Load
+  // 4. Initial Data Load
   loadData();
 });
 
@@ -164,43 +123,15 @@ function bindEvents() {
     modal.classList.remove("open");
   });
   
-  document.getElementById("btn-toggle-pw").addEventListener("click", () => {
-    const input = document.getElementById("api-key-input");
-    const icon = document.querySelector("#btn-toggle-pw i");
-    if (input.type === "password") {
-      input.type = "text";
-      icon.setAttribute("data-lucide", "eye-off");
-    } else {
-      input.type = "password";
-      icon.setAttribute("data-lucide", "eye");
-    }
-    lucide.createIcons();
-  });
-
-  document.getElementById("btn-save-api").addEventListener("click", () => {
-    const val = document.getElementById("api-key-input").value.trim();
-    if (val) {
-      localStorage.setItem(API_KEY_KEY, val);
-      state.apiKey = val;
-      state.mode = "api";
-      localStorage.removeItem(CACHE_KEY);
+  // Modal OK button
+  const okBtn = document.getElementById("btn-close-modal-ok");
+  if (okBtn) {
+    okBtn.addEventListener("click", () => {
       modal.classList.remove("open");
-      loadData();
-    } else {
-      alert("請輸入有效的 NCDR API 金鑰 Token。");
-    }
-  });
+    });
+  }
 
-  document.getElementById("btn-demo-mode").addEventListener("click", () => {
-    localStorage.removeItem(API_KEY_KEY);
-    localStorage.removeItem(CACHE_KEY);
-    state.apiKey = "";
-    state.mode = "demo";
-    document.getElementById("api-key-input").value = "";
-    modal.classList.remove("open");
-    loadData();
-  });
-
+  // Refresh trigger
   document.getElementById("btn-refresh").addEventListener("click", () => {
     const icon = document.getElementById("icon-refresh");
     icon.classList.add("icon-pulse");
@@ -272,13 +203,13 @@ async function loadData() {
   updateHeaderUI();
   
   if (state.mode === "demo") {
-    state.weatherData = JSON.parse(JSON.stringify(DEMO_NCDR_DATA));
+    state.weatherData = JSON.parse(JSON.stringify(DEMO_CIOT_DATA));
     filterAndRender();
     startCacheCountdown(null);
     return;
   }
   
-  // Mode: API. Check local cache
+  // Mode: Live. Check local storage cache
   const cached = localStorage.getItem(CACHE_KEY);
   if (cached) {
     try {
@@ -294,28 +225,19 @@ async function loadData() {
     }
   }
 
-  // Fetch NCDR API concurrently for all 20 counties
+  // Fetch CIOT API directly (No token required since Civil IoT API is public!)
   try {
-    const fetchPromises = COUNTIES.map(async (county) => {
-      const url = `${NCDR_API_URL_BASE}${encodeURIComponent(county)}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Token": state.apiKey
-        }
-      });
-      if (!response.ok) return [];
-      return await response.json();
-    });
-
-    const results = await Promise.all(fetchPromises);
-    const rawData = results.flat();
+    const response = await fetch(CIOT_API_URL);
+    if (!response.ok) {
+      throw new Error(`API 連線失敗，HTTP 代碼: ${response.status}`);
+    }
+    const rawData = await response.json();
     
-    if (!Array.isArray(rawData) || rawData.length === 0) {
-      throw new Error("API 未回傳資料或認證金鑰 Token 無效。");
+    if (!rawData.value || !Array.isArray(rawData.value) || rawData.value.length === 0) {
+      throw new Error("API 未回傳有效的 SensorThings value 陣列。");
     }
 
-    state.weatherData = cleanNCDRData(rawData);
+    state.weatherData = cleanCIOTData(rawData.value);
     
     const cacheObj = {
       timestamp: Date.now(),
@@ -326,50 +248,67 @@ async function loadData() {
     filterAndRender();
     startCacheCountdown(cacheObj.timestamp);
   } catch (error) {
-    console.error("NCDR API 介接失敗:", error);
-    alert(`連接 NCDR 降雨 API 失敗: ${error.message}\n將切換為 Demo 模擬資料展示。`);
+    console.error("CIOT API 讀取錯誤:", error);
+    alert(`無法讀取民生公共物聯網降雨 API: ${error.message}\n系統將為您自動切換至 Demo 模擬資料。`);
     state.mode = "demo";
-    state.weatherData = JSON.parse(JSON.stringify(DEMO_NCDR_DATA));
+    state.weatherData = JSON.parse(JSON.stringify(DEMO_CIOT_DATA));
     filterAndRender();
     startCacheCountdown(null);
   }
 }
 
-// --- NCDR Data Cleaner ---
-function cleanNCDRData(rawData) {
+// --- CIOT (SensorThings) Data Cleaner ---
+function cleanCIOTData(things) {
   const cleanedList = [];
   
-  rawData.forEach(item => {
-    const lat = parseFloat(item.WGS84_Lat || item.Lat);
-    const lon = parseFloat(item.WGS84_Lon || item.Lon);
+  things.forEach(thing => {
+    // 1. Extract coordinates from standard OGC Locations array
+    const loc = thing.Locations && thing.Locations[0] && thing.Locations[0].location;
+    const coordinates = loc && loc.coordinates;
+    const lon = coordinates ? parseFloat(coordinates[0]) : null;
+    const lat = coordinates ? parseFloat(coordinates[1]) : null;
     
     if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) return;
     
-    let rain = parseFloat(item.RainValue);
-    if (isNaN(rain) || item.RainValue === "NaN" || rain < 0) {
-      // Clean anomalies (NCDR uses "NaN" string for missing values)
-      rain = null;
+    // 2. Extract Rainfall from Datastreams
+    let rain = null;
+    if (thing.Datastreams && thing.Datastreams.length > 0) {
+      // Find datastream corresponding to rain/precipitation
+      const rainDs = thing.Datastreams.find(ds => ds.name && (ds.name.includes("雨量") || ds.name.includes("Rain") || ds.name.includes("Precipitation"))) || thing.Datastreams[0];
+      if (rainDs && rainDs.Observations && rainDs.Observations.length > 0) {
+        rain = parseFloat(rainDs.Observations[0].result);
+      }
     }
     
-    const county = item.CityName || item.County || item.CountyName || "未知縣市";
-    const gridId = item.Grid5000 || `${lon.toFixed(2)}_${lat.toFixed(2)}`;
+    if (isNaN(rain) || rain < 0) {
+      rain = null; // Clean missing/invalid values
+    }
+    
+    // 3. Extract County name
+    const name = thing.name || "未命名測站";
+    let county = "未知縣市";
+    if (thing.properties && thing.properties.county) {
+      county = thing.properties.county;
+    } else {
+      // Regular expression matching county name inside station name string
+      const matches = name.match(/(臺北市|新北市|桃園市|臺中市|臺南市|高雄市|基隆市|新竹市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義市|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|澎湖縣)/);
+      if (matches) county = matches[0];
+    }
     
     cleanedList.push({
-      GridId: gridId,
-      StationName: `網格 ${gridId}`, // grid node behaves as station name
+      StationId: thing["@iot.id"] || thing.name,
+      StationName: name.replace("下水道雨量計-", "").replace("下水道雨量-", ""),
       StationLatitude: lat,
       StationLongitude: lon,
       CountyName: county.trim(),
-      Precipitation: rain,
-      YY: item.YY || "2026",
-      MM: item.MM || "06"
+      Precipitation: rain
     });
   });
   
   return cleanedList;
 }
 
-// --- Cache Timer ---
+// --- Cache Countdown ---
 function startCacheCountdown(timestamp) {
   if (state.cacheTimer) clearInterval(state.cacheTimer);
   const cacheContainer = document.getElementById("cache-container");
@@ -400,7 +339,7 @@ function startCacheCountdown(timestamp) {
   state.cacheTimer = setInterval(updateCountdown, 1000);
 }
 
-// --- Header UI Mode status ---
+// --- Header Mode indicator text ---
 function updateHeaderUI() {
   const indicator = document.getElementById("mode-indicator");
   const modeText = document.getElementById("status-mode-text");
@@ -410,11 +349,11 @@ function updateHeaderUI() {
     modeText.textContent = "Demo 模擬數據模式";
   } else {
     indicator.className = "status-indicator active";
-    modeText.textContent = "NCDR 即時串接模式";
+    modeText.textContent = "CIOT 即時連線模式";
   }
 }
 
-// --- Filters mapping ---
+// --- Filtering mapping ---
 function filterAndRender() {
   state.filteredData = state.weatherData.filter(st => {
     let countyMatch = true;
@@ -427,7 +366,7 @@ function filterAndRender() {
     if (state.searchQuery) {
       searchMatch = st.StationName.toLowerCase().includes(state.searchQuery) ||
                     st.CountyName.toLowerCase().includes(state.searchQuery) ||
-                    st.GridId.toLowerCase().includes(state.searchQuery);
+                    st.StationId.toString().toLowerCase().includes(state.searchQuery);
     }
     
     return countyMatch && searchMatch;
@@ -443,14 +382,14 @@ function filterAndRender() {
 function updateKPIMetrics() {
   const validRainGrids = state.weatherData.filter(st => st.Precipitation !== null);
   
-  // 1. Max Rain Grid
+  // 1. Max Rain station
   if (validRainGrids.length > 0) {
     const maxRainSt = validRainGrids.reduce((prev, curr) => prev.Precipitation > curr.Precipitation ? prev : curr);
     document.getElementById("val-max-rain").textContent = `${maxRainSt.Precipitation.toFixed(1)} mm`;
-    document.getElementById("loc-max-rain").textContent = `網格: ${maxRainSt.GridId} (${maxRainSt.CountyName})`;
+    document.getElementById("loc-max-rain").textContent = `${maxRainSt.StationName} (${maxRainSt.CountyName})`;
   } else {
     document.getElementById("val-max-rain").textContent = "0.0 mm";
-    document.getElementById("loc-max-rain").textContent = "無降雨網格";
+    document.getElementById("loc-max-rain").textContent = "無降雨測站";
   }
 
   // 2. Average Rain
@@ -466,9 +405,9 @@ function updateKPIMetrics() {
   const alertGrids = validRainGrids.filter(st => st.Precipitation >= 40);
   document.getElementById("val-alert-count").textContent = alertGrids.length;
 
-  // 4. Grid counts
+  // 4. Active sensors count
   document.getElementById("val-station-count").textContent = state.weatherData.length;
-  document.getElementById("lbl-station-detail").textContent = `篩選後: ${state.filteredData.length} 網格`;
+  document.getElementById("lbl-station-detail").textContent = `篩選後: ${state.filteredData.length} 站`;
 }
 
 // --- Map Marker rendering ---
@@ -483,12 +422,10 @@ function renderMapMarkers() {
     const lat = st.StationLatitude;
     const lon = st.StationLongitude;
     
-    // NCDR ObsRain does not have Kinmen/Matsu, but if coordinates fall outside center view, we push it
     latLons.push([lat, lon]);
 
     const rain = st.Precipitation;
     
-    // If in Alert Map Mode, only show markers that are under active warning (rain >= 40mm)
     if (state.mapMode === "alert" && (rain === null || rain < 40)) {
       return;
     }
@@ -502,9 +439,9 @@ function renderMapMarkers() {
       tooltipVal = `${rain.toFixed(1)} mm`;
     }
 
-    const scale = rain > 150 ? 1.4 : (rain > 40 ? 1.2 : 1.0);
+    const scale = rain > 150 ? 1.45 : (rain > 40 ? 1.25 : 1.0);
 
-    // Dynamic Leaflet DivIcon
+    // Leaflet Custom SVG Markers (looks beautiful)
     const customIcon = L.divIcon({
       className: "custom-marker-icon",
       html: `<div style="
@@ -512,7 +449,7 @@ function renderMapMarkers() {
         height: 14px; 
         background-color: ${markerColor}; 
         border: 2px solid #fff; 
-        border-radius: 3px; /* square shape for NCDR grid system */
+        border-radius: 50%; 
         box-shadow: 0 0 10px ${markerColor};
         transform: scale(${scale});
         transition: all 0.3s ease;
@@ -545,16 +482,16 @@ function renderMapMarkers() {
     
     const popupContent = `
       <div class="popup-station-header">
-        <div class="popup-station-name">觀測網格 ${st.GridId}</div>
-        <div class="popup-station-meta">${st.CountyName} | NCDR Grid Node</div>
+        <div class="popup-station-name">${st.StationName}</div>
+        <div class="popup-station-meta">${st.CountyName} | ID: ${st.StationId}</div>
       </div>
       <div class="popup-grid">
         <div class="popup-item">
-          <span class="popup-label">經度 (WGS84)</span>
+          <span class="popup-label">經度</span>
           <span class="popup-val">${lon.toFixed(4)}</span>
         </div>
         <div class="popup-item">
-          <span class="popup-label">緯度 (WGS84)</span>
+          <span class="popup-label">緯度</span>
           <span class="popup-val">${lat.toFixed(4)}</span>
         </div>
         <div class="popup-item" style="grid-column: span 2; margin-top: 8px;">
@@ -568,7 +505,7 @@ function renderMapMarkers() {
     `;
 
     marker.bindPopup(popupContent);
-    marker.bindTooltip(`網格 ${st.GridId}: ${tooltipVal}`, {
+    marker.bindTooltip(`${st.StationName}: ${tooltipVal}`, {
       direction: "top",
       offset: [0, -10],
       opacity: 0.85
@@ -655,7 +592,7 @@ function renderCharts() {
       },
       yAxis: {
         type: "category",
-        data: validRainList.map(st => `${st.CountyName} (${st.GridId})`),
+        data: validRainList.map(st => `${st.CountyName} - ${st.StationName}`),
         axisLine: { lineStyle: { color: "rgba(255,255,255,0.1)" } },
         axisLabel: { textStyle: textStyle }
       },
@@ -715,7 +652,7 @@ function renderCharts() {
       },
       series: [
         {
-          name: "網格數量",
+          name: "測站數量",
           type: "bar",
           data: Object.values(bins),
           itemStyle: {

@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>台灣即時降雨量觀測數據視覺化系統 (NCDR API)</title>
+  <title>台灣即時降雨量觀測數據視覺化系統 (Civil IoT Taiwan)</title>
   
   <!-- SEO Meta Tags -->
-  <meta name="description" content="本系統串接國家災害防救科技中心 (NCDR) 開放資料 API，即時清洗、處理並視覺化全台各觀測網格之累積降雨數據。提供地理資訊地圖與動態統計圖表。">
-  <meta name="keywords" content="國家災害防救科技中心, NCDR, 降雨量視覺化, 台灣雨量地圖, 氣象API, ECharts, Leaflet">
+  <meta name="description" content="本系統串接民生公共物聯網 (Civil IoT Taiwan) OGC SensorThings API，即時清洗、處理並視覺化全台降雨與下水道雨量計之累積降雨數據。提供地理資訊地圖與動態統計圖表。">
+  <meta name="keywords" content="民生公共物聯網, CIOT, SensorThings API, 降雨量視覺化, 台灣雨量地圖, OGC, ECharts, Leaflet">
   <meta name="author" content="Weather Visualization Project Team">
   
   <!-- Fonts -->
@@ -35,7 +35,7 @@
         </div>
         <div class="logo-text">
           <h1>即時降雨觀測與分析系統</h1>
-          <p>RESTful NCDR API Real-Time Precipitation Dashboard</p>
+          <p>RESTful CIOT STA API Real-Time Rainfall Dashboard</p>
         </div>
       </div>
       
@@ -43,7 +43,7 @@
       <div class="header-controls">
         <div class="control-status glass-effect">
           <span class="status-indicator active" id="mode-indicator"></span>
-          <span class="status-text" id="status-mode-text">Demo 模式</span>
+          <span class="status-text" id="status-mode-text">即時連線模式</span>
         </div>
         
         <div class="cache-info glass-effect" id="cache-container" style="display: none;">
@@ -56,9 +56,9 @@
           <span>更新</span>
         </button>
         
-        <button class="btn btn-primary" id="btn-config-api" title="設定 NCDR API 金鑰">
-          <i data-lucide="key"></i>
-          <span>API 金鑰</span>
+        <button class="btn btn-primary" id="btn-config-api" title="檢視 API 連線資訊">
+          <i data-lucide="info"></i>
+          <span>API 資訊</span>
         </button>
       </div>
     </header>
@@ -72,7 +72,7 @@
         <div class="metric-content">
           <p class="metric-title">全台最高降雨量</p>
           <h3 class="metric-value text-gradient-rain" id="val-max-rain">--.- mm</h3>
-          <p class="metric-subtitle" id="loc-max-rain">網格: -- (--)</p>
+          <p class="metric-subtitle" id="loc-max-rain">測站: -- (--)</p>
         </div>
       </div>
       
@@ -83,7 +83,7 @@
         <div class="metric-content">
           <p class="metric-title">全台平均降雨量</p>
           <h3 class="metric-value text-gradient-temp-low" id="val-avg-rain">--.- mm</h3>
-          <p class="metric-subtitle" id="loc-avg-rain">所有監測網格均值</p>
+          <p class="metric-subtitle" id="loc-avg-rain">所有下水道監測站均值</p>
         </div>
       </div>
 
@@ -92,7 +92,7 @@
           <i data-lucide="alert-triangle"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">警戒網格數</p>
+          <p class="metric-title">警戒測站數</p>
           <h3 class="metric-value text-gradient-temp-high" id="val-alert-count">--</h3>
           <p class="metric-subtitle" id="lbl-alert-detail">雨量達大雨(40mm)以上</p>
         </div>
@@ -103,9 +103,9 @@
           <i data-lucide="grid"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">運作中觀測網格</p>
+          <p class="metric-title">運作中監測站</p>
           <h3 class="metric-value text-gradient-stations" id="val-station-count">--</h3>
-          <p class="metric-subtitle" id="lbl-station-detail">總觀測點數</p>
+          <p class="metric-subtitle" id="lbl-station-detail">總監測點數</p>
         </div>
       </div>
     </section>
@@ -117,12 +117,12 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="map-pin"></i>
-            <h2>降雨觀測網格分佈圖</h2>
+            <h2>下水道雨量計地理分佈圖</h2>
           </div>
           <div class="map-controls">
             <div class="button-group">
               <button class="btn-toggle active" id="map-mode-rain">累積雨量</button>
-              <button class="btn-toggle" id="map-mode-alert">警戒網格</button>
+              <button class="btn-toggle" id="map-mode-alert">警戒測站</button>
             </div>
           </div>
         </div>
@@ -139,8 +139,8 @@
               <option value="臺北市">臺北市</option>
               <option value="新北市">新北市</option>
               <option value="桃園市">桃園市</option>
-              <option value="台中市">臺中市</option>
-              <option value="台南市">臺南市</option>
+              <option value="臺中市">臺中市</option>
+              <option value="臺南市">臺南市</option>
               <option value="高雄市">高雄市</option>
               <option value="基隆市">基隆市</option>
               <option value="新竹市">新竹市</option>
@@ -154,10 +154,8 @@
               <option value="屏東縣">屏東縣</option>
               <option value="宜蘭縣">宜蘭縣</option>
               <option value="花蓮縣">花蓮縣</option>
-              <option value="台東縣">臺東縣</option>
+              <option value="臺東縣">臺東縣</option>
               <option value="澎湖縣">澎湖縣</option>
-              <option value="金門縣">金門縣</option>
-              <option value="連江縣">連江縣</option>
             </select>
           </div>
         </div>
@@ -179,19 +177,19 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="bar-chart-3"></i>
-            <h2>降雨數據統計與分析</h2>
+            <h2>雨量感測器統計與分析</h2>
           </div>
           <div class="chart-tabs">
             <button class="tab-btn active" data-tab="tab-rankings">降雨排行榜</button>
-            <button class="tab-btn" data-tab="tab-scatter">網格降雨區間</button>
-            <button class="tab-btn" data-tab="tab-counties">縣市降雨分佈</button>
+            <button class="tab-btn" data-tab="tab-scatter">雨量區間分佈</button>
+            <button class="tab-btn" data-tab="tab-counties">縣市雨量統計</button>
           </div>
         </div>
 
         <!-- Tab: Rankings -->
         <div class="tab-content active" id="tab-rankings">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">全台累積降雨量排行榜 (Top 15)</h3>
+            <h3 class="chart-box-title">即時累積降雨量排行榜 (Top 15 監測站)</h3>
             <div id="chart-rain-ranking" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
@@ -199,7 +197,7 @@
         <!-- Tab: Rain Histogram -->
         <div class="tab-content" id="tab-scatter">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">監測網格雨量區間分布統計 (網格數量統計)</h3>
+            <h3 class="chart-box-title">監測雨量站區間分布統計 (測站個數分佈)</h3>
             <div id="chart-rain-histogram" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
@@ -207,7 +205,7 @@
         <!-- Tab: County Statistics -->
         <div class="tab-content" id="tab-counties">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">各縣市平均累積雨量分佈統計</h3>
+            <h3 class="chart-box-title">各縣市平均累積雨量與最大雨量分佈</h3>
             <div id="chart-county-bar" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
@@ -218,7 +216,7 @@
     <footer class="app-footer glass-effect">
       <div class="footer-info">
         <p>開發展示目的：分散式網路服務 (RESTful Web Service) 實務應用與地理資訊視覺化</p>
-        <p class="data-source-claim">資料來源：國家災害防救科技中心 (NCDR) 災防資料服務平台。累積降雨觀測資料即時更新。</p>
+        <p class="data-source-claim">資料來源：國家高速網路與計算中心 (NCHC) 民生公共物聯網 (Civil IoT Taiwan) 資料服務平台。累積降雨觀測資料即時更新。</p>
       </div>
       <div class="footer-github">
         <a href="https://github.com/" target="_blank" class="github-link">
@@ -233,30 +231,29 @@
   <div class="modal-overlay" id="api-modal">
     <div class="modal-card glass-effect animate-in">
       <div class="modal-header">
-        <h3><i data-lucide="settings" style="vertical-align: middle; margin-right: 8px;"></i>NCDR API 設定</h3>
+        <h3><i data-lucide="info" style="vertical-align: middle; margin-right: 8px;"></i>民生公共物聯網 API 資訊</h3>
         <button class="modal-close-btn" id="modal-close"><i data-lucide="x"></i></button>
       </div>
       <div class="modal-body">
-        <p>請輸入您的國家災害防救科技中心 (NCDR) 災防資料服務平台 API 授權金鑰 (Token)。金鑰僅會被儲存在您瀏覽器的本地快取 (LocalStorage) 中，不會傳送至其他第三方伺服器。</p>
+        <p>本系統使用民生公共物聯網 (Civil IoT Taiwan) 的 OGC SensorThings API (STA) 公開資料集作為即時資料來源。</p>
         
-        <div class="form-group">
-          <label for="api-key-input">NCDR API 金鑰 (Token)</label>
-          <input type="password" id="api-key-input" placeholder="請貼上您的 Token..." autocomplete="off">
-          <span class="password-toggle" id="btn-toggle-pw"><i data-lucide="eye"></i></span>
+        <div class="cwa-guide-box" style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15);">
+          <h4 style="color: #a7f3d0;"><i data-lucide="check-circle" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 6px;"></i>無需 API 金鑰！</h4>
+          <p style="margin-top: 6px; font-size: 0.8rem; color: var(--text-secondary);">該 API 屬於完全公開的環境數據，任何人皆可直接連線存取。系統已預設為您開啟即時串接功能，無需配置任何授權憑證或 Token 即可讀取全台最新雨量計數值。</p>
         </div>
         
         <div class="cwa-guide-box">
-          <h4>如何取得 NCDR API Token？</h4>
-          <ol>
-            <li>前往 <a href="https://datahub.ncdr.nat.gov.tw/" target="_blank" rel="noopener noreferrer">NCDR 災害防救資料服務平台</a></li>
-            <li>註冊並登入會員帳號</li>
-            <li>申請您所需的降雨量 API 服務即可取得專屬 Token</li>
-          </ol>
+          <h4>API 連線詳情</h4>
+          <ul style="padding-left: 20px; font-size: 0.78rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px;">
+            <li>協議標準：OGC SensorThings API v1.0</li>
+            <li>資料端點：`STA_RainSewer` 下水道雨量計</li>
+            <li>提供單位：國家高速網路與計算中心 (NCHC)</li>
+            <li>官方網址：<a href="https://sta.colife.org.tw/" target="_blank" rel="noopener noreferrer">sta.colife.org.tw</a></li>
+          </ul>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="btn-demo-mode">切換至 Demo 模式</button>
-        <button class="btn btn-primary" id="btn-save-api">儲存金鑰並重新整理</button>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="btn btn-primary" id="btn-close-modal-ok">我知道了</button>
       </div>
     </div>
   </div>
