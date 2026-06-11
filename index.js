@@ -113,62 +113,86 @@ function initMap() {
   stationMarkersGroup = L.layerGroup().addTo(map);
 }
 
-// --- Bind Event Listeners ---
 function bindEvents() {
   const modal = document.getElementById("api-modal");
-  document.getElementById("btn-config-api").addEventListener("click", () => {
-    modal.classList.add("open");
-  });
-  document.getElementById("modal-close").addEventListener("click", () => {
-    modal.classList.remove("open");
-  });
+  
+  const btnConfigApi = document.getElementById("btn-config-api");
+  if (btnConfigApi && modal) {
+    btnConfigApi.addEventListener("click", () => {
+      modal.classList.add("open");
+    });
+  }
+  
+  const modalClose = document.getElementById("modal-close");
+  if (modalClose && modal) {
+    modalClose.addEventListener("click", () => {
+      modal.classList.remove("open");
+    });
+  }
   
   // Modal OK button
   const okBtn = document.getElementById("btn-close-modal-ok");
-  if (okBtn) {
+  if (okBtn && modal) {
     okBtn.addEventListener("click", () => {
       modal.classList.remove("open");
     });
   }
 
   // Refresh trigger
-  document.getElementById("btn-refresh").addEventListener("click", () => {
-    const icon = document.getElementById("icon-refresh");
-    icon.classList.add("icon-pulse");
-    localStorage.removeItem(CACHE_KEY);
-    loadData().finally(() => {
-      setTimeout(() => {
-        icon.classList.remove("icon-pulse");
-      }, 800);
+  const btnRefresh = document.getElementById("btn-refresh");
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      const icon = document.getElementById("icon-refresh");
+      if (icon) icon.classList.add("icon-pulse");
+      localStorage.removeItem(CACHE_KEY);
+      loadData().finally(() => {
+        setTimeout(() => {
+          if (icon) icon.classList.remove("icon-pulse");
+        }, 800);
+      });
     });
-  });
+  }
 
   // Map layer toggle - Rain vs Alerts
-  document.getElementById("map-mode-rain").addEventListener("click", () => {
-    document.getElementById("map-mode-rain").classList.add("active");
-    document.getElementById("map-mode-alert").classList.remove("active");
-    state.mapMode = "rain";
-    renderMapMarkers();
-    renderMapLegend();
-  });
+  const mapModeRain = document.getElementById("map-mode-rain");
+  if (mapModeRain) {
+    mapModeRain.addEventListener("click", () => {
+      mapModeRain.classList.add("active");
+      const mapModeAlert = document.getElementById("map-mode-alert");
+      if (mapModeAlert) mapModeAlert.classList.remove("active");
+      state.mapMode = "rain";
+      renderMapMarkers();
+      renderMapLegend();
+    });
+  }
 
-  document.getElementById("map-mode-alert").addEventListener("click", () => {
-    document.getElementById("map-mode-alert").classList.add("active");
-    document.getElementById("map-mode-rain").classList.remove("active");
-    state.mapMode = "alert";
-    renderMapMarkers();
-    renderMapLegend();
-  });
+  const mapModeAlert = document.getElementById("map-mode-alert");
+  if (mapModeAlert) {
+    mapModeAlert.addEventListener("click", () => {
+      mapModeAlert.classList.add("active");
+      const mapModeRain = document.getElementById("map-mode-rain");
+      if (mapModeRain) mapModeRain.classList.remove("active");
+      state.mapMode = "alert";
+      renderMapMarkers();
+      renderMapLegend();
+    });
+  }
 
-  document.getElementById("select-county").addEventListener("change", (e) => {
-    state.selectedCounty = e.target.value;
-    filterAndRender();
-  });
+  const selectCounty = document.getElementById("select-county");
+  if (selectCounty) {
+    selectCounty.addEventListener("change", (e) => {
+      state.selectedCounty = e.target.value;
+      filterAndRender();
+    });
+  }
 
-  document.getElementById("search-station-input").addEventListener("input", (e) => {
-    state.searchQuery = e.target.value.trim().toLowerCase();
-    filterAndRender();
-  });
+  const searchInput = document.getElementById("search-station-input");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value.trim().toLowerCase();
+      filterAndRender();
+    });
+  }
 
   // Tab resizing / ECharts activation
   const tabs = document.querySelectorAll(".tab-btn");
@@ -181,7 +205,8 @@ function bindEvents() {
       document.querySelectorAll(".tab-content").forEach(content => {
         content.classList.remove("active");
       });
-      document.getElementById(tabId).classList.add("active");
+      const targetContent = document.getElementById(tabId);
+      if (targetContent) targetContent.classList.add("active");
       
       setTimeout(() => {
         Object.values(state.charts).forEach(chart => {
