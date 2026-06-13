@@ -397,7 +397,7 @@ function cleanCIOTData(things, category) {
       || thing.name 
       || thing.description 
       || "未命名測站";
-    let county = "未知縣市";
+    let county = "";
     if (thing.properties && thing.properties.county) {
       county = thing.properties.county;
     } else {
@@ -405,9 +405,14 @@ function cleanCIOTData(things, category) {
       if (matches) county = matches[0];
     }
     
+    let finalName = name.replace("下水道雨量計-", "").replace("河川水位計-", "").replace("下水道雨量-", "").replace("水位計-", "").replace("空氣品質測站-", "").replace("空品測站-", "");
+    if (finalName.startsWith("未知縣市-") || finalName.startsWith("未知縣市")) {
+      finalName = finalName.replace(/^未知縣市-?/, "");
+    }
+    
     cleanedList.push({
       StationId: thing["@iot.id"] || thing.name,
-      StationName: name.replace("下水道雨量計-", "").replace("河川水位計-", ""),
+      StationName: finalName.trim() || "未命名測站",
       StationLatitude: lat,
       StationLongitude: lon,
       CountyName: county.trim(),
@@ -558,13 +563,10 @@ function renderMapMarkers() {
       </div>
     `;
     
-    let radius = 6;
-    if (st.Value !== null) {
-      radius = 6 + (state.currentCategory === "water" ? st.Value * 1.5 : (state.currentCategory === "rain" ? st.Value * 0.1 : st.Value * 0.2));
-    }
+    let radius = 8;
     
     L.circleMarker([st.StationLatitude, st.StationLongitude], {
-      radius: Math.max(6, Math.min(radius, 25)),
+      radius: radius,
       fillColor: color,
       color: "#ffffff",
       weight: 1,
