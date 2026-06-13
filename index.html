@@ -41,6 +41,17 @@
       
       <!-- Cache Controls & System Mode -->
       <div class="header-controls">
+        <!-- 資料類別切換選單 -->
+        <div class="category-select-wrapper glass-effect">
+          <i data-lucide="layers"></i>
+          <select id="select-category" class="category-select">
+            <option value="rain" selected>🌧️ 降雨與氣象</option>
+            <option value="water">💧 河川水位</option>
+            <option value="air">🍃 空氣品質</option>
+            <option value="quake">🫨 地震觀測</option>
+          </select>
+        </div>
+
         <div class="control-status glass-effect">
           <span class="status-indicator active" id="mode-indicator"></span>
           <span class="status-text" id="status-mode-text">即時連線模式</span>
@@ -70,7 +81,7 @@
           <i data-lucide="droplets"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">全台最高降雨量</p>
+          <p class="metric-title" id="lbl-max-title">全台最高降雨量</p>
           <h3 class="metric-value text-gradient-rain" id="val-max-rain">--.- mm</h3>
           <p class="metric-subtitle" id="loc-max-rain">測站: -- (--)</p>
         </div>
@@ -81,7 +92,7 @@
           <i data-lucide="cloud-rain"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">全台平均降雨量</p>
+          <p class="metric-title" id="lbl-avg-title">全台平均降雨量</p>
           <h3 class="metric-value text-gradient-temp-low" id="val-avg-rain">--.- mm</h3>
           <p class="metric-subtitle" id="loc-avg-rain">所有下水道監測站均值</p>
         </div>
@@ -92,7 +103,7 @@
           <i data-lucide="alert-triangle"></i>
         </div>
         <div class="metric-content">
-          <p class="metric-title">警戒測站數</p>
+          <p class="metric-title" id="lbl-alert-title">警戒測站數</p>
           <h3 class="metric-value text-gradient-temp-high" id="val-alert-count">--</h3>
           <p class="metric-subtitle" id="lbl-alert-detail">雨量達大雨(40mm)以上</p>
         </div>
@@ -117,11 +128,11 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="map-pin"></i>
-            <h2>下水道雨量計地理分佈圖</h2>
+            <h2 id="lbl-map-title">下水道雨量計地理分佈圖</h2>
           </div>
           <div class="map-controls">
             <div class="button-group">
-              <button class="btn-toggle active" id="map-mode-rain">累積雨量</button>
+              <button class="btn-toggle active" id="map-mode-rain">觀測數據</button>
               <button class="btn-toggle" id="map-mode-alert">警戒測站</button>
             </div>
           </div>
@@ -188,19 +199,19 @@
         <div class="card-header">
           <div class="card-title">
             <i data-lucide="bar-chart-3"></i>
-            <h2>雨量感測器統計與分析</h2>
+            <h2 id="lbl-charts-title">雨量感測器統計與分析</h2>
           </div>
           <div class="chart-tabs">
-            <button class="tab-btn active" data-tab="tab-rankings">降雨排行榜</button>
-            <button class="tab-btn" data-tab="tab-scatter">雨量區間分佈</button>
-            <button class="tab-btn" data-tab="tab-counties">縣市雨量統計</button>
+            <button class="tab-btn active" data-tab="tab-rankings" id="lbl-tab-rankings">降雨排行榜</button>
+            <button class="tab-btn" data-tab="tab-scatter" id="lbl-tab-scatter">雨量區間分佈</button>
+            <button class="tab-btn" data-tab="tab-counties" id="lbl-tab-counties">縣市雨量統計</button>
           </div>
         </div>
 
         <!-- Tab: Rankings -->
         <div class="tab-content active" id="tab-rankings">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">即時累積降雨量排行榜 (Top 15 監測站)</h3>
+            <h3 class="chart-box-title" id="lbl-chart-rank-title">即時累積降雨量排行榜 (Top 15 監測站)</h3>
             <div id="chart-rain-ranking" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
@@ -208,7 +219,7 @@
         <!-- Tab: Rain Histogram -->
         <div class="tab-content" id="tab-scatter">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">監測雨量站區間分布統計 (測站個數分佈)</h3>
+            <h3 class="chart-box-title" id="lbl-chart-hist-title">監測雨量站區間分布統計 (測站個數分佈)</h3>
             <div id="chart-rain-histogram" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
@@ -216,7 +227,7 @@
         <!-- Tab: County Statistics -->
         <div class="tab-content" id="tab-counties">
           <div class="echart-container-wrapper full-width-chart">
-            <h3 class="chart-box-title">各縣市平均累積雨量與最大雨量分佈</h3>
+            <h3 class="chart-box-title" id="lbl-chart-county-title">各縣市平均累積雨量與最大雨量分佈</h3>
             <div id="chart-county-bar" class="echart-container" style="height: 420px;"></div>
           </div>
         </div>
